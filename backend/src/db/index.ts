@@ -19,4 +19,13 @@ export function createDbAdapter(): DbAdapter {
   }
 }
 
-export type { DbAdapter, Post, SyncState, PostRelation, PostLang } from "./DbAdapter";
+export type {
+  DbAdapter,
+  Post,
+  SyncState,
+  SyncChannel,
+  OAuthToken,
+  PostRelation,
+  PostLang,
+  PostSource,
+} from "./DbAdapter";

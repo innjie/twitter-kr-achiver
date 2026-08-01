@@ -6,6 +6,10 @@
 
 export type PostRelation = "tweet" | "retweet" | "like" | "bookmark";
 export type PostLang = "ko" | "en" | "ja" | "zh" | string;
+export type PostSource = "archive_import" | "api_poll";
+
+/** X API v2의 폴링 엔드포인트 단위. posts.relation과는 다른 축 (tweets 엔드포인트는 tweet/retweet을 함께 반환). */
+export type SyncChannel = "tweets" | "likes" | "bookmarks";
 
 export interface Post {
   id: string;
@@ -14,10 +18,25 @@ export interface Post {
   lang: PostLang;
   relation: PostRelation;
   createdAt: Date;
+  savedAt: Date;
+  url: string;
+  /** 리트윗인 경우 원본 트윗(posts.id) 참조. 리트윗이 아니면 null. */
+  retweetOfId: string | null;
+  source: PostSource;
 }
 
 export interface SyncState {
+  channel: SyncChannel;
   lastSyncedId: string | null;
+  updatedAt: Date;
+}
+
+export interface OAuthToken {
+  /** 암호화된 상태로 저장/조회 (TOKEN_ENCRYPTION_KEY 사용, 평문 보관 금지) */
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: Date;
+  updatedAt: Date;
 }
 
 export interface DbAdapter {
@@ -31,6 +50,9 @@ export interface DbAdapter {
   /** 배치 insert (아카이브 백필용, 1,000건 단위 트랜잭션 권장) */
   batchInsertPosts(posts: Post[]): Promise<void>;
 
-  getSyncState(): Promise<SyncState>;
-  setLastSyncedId(id: string): Promise<void>;
+  getSyncState(channel: SyncChannel): Promise<SyncState>;
+  setLastSyncedId(channel: SyncChannel, id: string): Promise<void>;
+
+  getOAuthToken(): Promise<OAuthToken | null>;
+  saveOAuthToken(token: OAuthToken): Promise<void>;
 }

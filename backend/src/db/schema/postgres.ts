@@ -1,0 +1,36 @@
+/**
+ * Postgres 스키마 (선택 DB). SQLite와 동일 스키마를 유지 (docs/06_개발가이드.md §6).
+ */
+export const POSTGRES_SCHEMA_SQL = `
+CREATE TABLE IF NOT EXISTS posts (
+  id              TEXT PRIMARY KEY,
+  author_username TEXT NOT NULL,
+  text            TEXT NOT NULL,
+  lang            TEXT,
+  relation        TEXT NOT NULL CHECK (relation IN ('tweet', 'retweet', 'like', 'bookmark')),
+  created_at      TIMESTAMPTZ NOT NULL,
+  saved_at        TIMESTAMPTZ NOT NULL,
+  url             TEXT NOT NULL,
+  retweet_of_id   TEXT REFERENCES posts(id),
+  source          TEXT NOT NULL CHECK (source IN ('archive_import', 'api_poll'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_posts_relation ON posts(relation);
+CREATE INDEX IF NOT EXISTS idx_posts_lang ON posts(lang);
+CREATE INDEX IF NOT EXISTS idx_posts_author_username ON posts(author_username);
+CREATE INDEX IF NOT EXISTS idx_posts_created_at ON posts(created_at);
+
+CREATE TABLE IF NOT EXISTS sync_state (
+  channel         TEXT PRIMARY KEY CHECK (channel IN ('tweets', 'likes', 'bookmarks')),
+  last_synced_id  TEXT,
+  updated_at      TIMESTAMPTZ NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS oauth_tokens (
+  id              INTEGER PRIMARY KEY CHECK (id = 1),
+  access_token    TEXT NOT NULL,
+  refresh_token   TEXT NOT NULL,
+  expires_at      TIMESTAMPTZ NOT NULL,
+  updated_at      TIMESTAMPTZ NOT NULL
+);
+`;
