@@ -1,8 +1,11 @@
-import express from "express";
+import path from "node:path";
+import express, { type ErrorRequestHandler } from "express";
 import type { AppEnv } from "./config/env";
 import { basicAuth } from "./middleware/basicAuth";
+import type { DbAdapter } from "./db/DbAdapter";
+import { createImportRouter } from "./routes/importRoutes";
 
-export function createApp(env: AppEnv) {
+export function createApp(env: AppEnv, db: DbAdapter) {
   const app = express();
   app.use(express.json());
 
@@ -15,8 +18,17 @@ export function createApp(env: AppEnv) {
     res.json({ status: "ok", appMode: env.appMode });
   });
 
-  // TODO: DB 어댑터 / SearchProvider를 사용하는 실제 라우트는 추후 구현
-  // (초기 아카이브 임포트, X API 폴링, 검색 API 등)
+  app.use(express.static(path.join(__dirname, "..", "public")));
+  app.use(createImportRouter(db));
+
+  // TODO: SearchProvider를 사용하는 실제 라우트는 추후 구현 (X API 폴링, 검색 API 등)
+
+  const handleError: ErrorRequestHandler = (err, _req, res, _next) => {
+    console.error("[app] unhandled error:", err);
+    const message = err instanceof Error ? err.message : "요청 처리 중 오류가 발생했습니다";
+    res.status(500).json({ error: message });
+  };
+  app.use(handleError);
 
   return app;
 }

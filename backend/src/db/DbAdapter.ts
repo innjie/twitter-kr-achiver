@@ -20,7 +20,10 @@ export interface Post {
   createdAt: Date;
   savedAt: Date;
   url: string;
-  /** 리트윗인 경우 원본 트윗(posts.id) 참조. 리트윗이 아니면 null. */
+  /**
+   * 리트윗인 경우 원본 트윗(posts.id) 참조. 리트윗이 아니면 null.
+   * FK로 강제되지 않음: 원본은 대개 타인의 트윗이라 우리 posts에 실제로 존재하지 않는 경우가 정상.
+   */
   retweetOfId: string | null;
   source: PostSource;
 }
