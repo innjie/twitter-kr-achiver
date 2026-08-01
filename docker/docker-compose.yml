@@ -1,0 +1,36 @@
+# 로컬 개발용 Docker Compose 뼈대.
+# 검색엔진은 profile로 선택 실행 (.env의 SEARCH_ENGINE과 맞춰서 사용):
+#   Meilisearch:   docker compose --profile meilisearch up -d
+#   Elasticsearch: docker compose --profile elasticsearch up -d
+#
+# [보안 필수] 모든 포트는 127.0.0.1에만 바인딩 (docs/06_개발가이드.md §9 #3).
+# 서버(홈서버/VPS) 배포 시에는 별도의 리버스 프록시 + 내부 네트워크 구성이 필요하며,
+# 이 파일은 아직 그 프로필을 포함하지 않은 로컬 전용 뼈대 상태입니다.
+
+services:
+  meilisearch:
+    image: getmeili/meilisearch:v1.10
+    profiles: ["meilisearch"]
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:?MEILI_MASTER_KEY가 .env에 설정되어야 합니다}
+      MEILI_ENV: development
+    ports:
+      - "127.0.0.1:7700:7700"
+    volumes:
+      - meilisearch_data:/meili_data
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    profiles: ["elasticsearch"]
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "true"
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:?ELASTIC_PASSWORD가 .env에 설정되어야 합니다}
+    ports:
+      - "127.0.0.1:9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+
+volumes:
+  meilisearch_data:
+  elasticsearch_data:
