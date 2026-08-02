@@ -4,11 +4,20 @@ import type { SearchProvider } from "../search/SearchProvider";
 import { parseSearchQuery } from "../search/queryParser";
 
 const VALID_RELATIONS: PostRelation[] = ["tweet", "retweet", "like", "bookmark"];
+const DEFAULT_LIMIT = 20;
+const MAX_LIMIT = 50;
 
 function firstString(value: unknown): string | undefined {
   if (typeof value === "string") return value;
   if (Array.isArray(value) && typeof value[0] === "string") return value[0];
   return undefined;
+}
+
+/** 쿼리 파라미터의 음이 아닌 정수 문자열을 검증/파싱한다. 값이 없으면 undefined, 형식이 잘못되면 null(에러 신호) */
+function parseNonNegativeInt(value: string | undefined): number | undefined | null {
+  if (value === undefined) return undefined;
+  if (!/^\d+$/.test(value)) return null;
+  return Number.parseInt(value, 10);
 }
 
 /**
@@ -48,8 +57,24 @@ export function createSearchRouter(search: SearchProvider): Router {
       filters.relation = relation as PostRelation;
     }
 
+    const rawLimit = parseNonNegativeInt(firstString(req.query.limit));
+    if (rawLimit === null) {
+      res.status(400).json({ error: "limit은 0 이상의 정수여야 합니다" });
+      return;
+    }
+    const rawOffset = parseNonNegativeInt(firstString(req.query.offset));
+    if (rawOffset === null) {
+      res.status(400).json({ error: "offset은 0 이상의 정수여야 합니다" });
+      return;
+    }
+
+    const pagination = {
+      limit: Math.min(rawLimit ?? DEFAULT_LIMIT, MAX_LIMIT),
+      offset: rawOffset ?? 0,
+    };
+
     try {
-      const result = await search.search(parsed.text, filters);
+      const result = await search.search(parsed.text, filters, pagination);
       res.json(result);
     } catch (err) {
       console.error("[search] 검색 실패:", err);

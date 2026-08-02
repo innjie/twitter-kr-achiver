@@ -17,9 +17,22 @@ export interface SearchFilters {
   isReply?: boolean;
 }
 
+export interface SearchPagination {
+  limit?: number;
+  offset?: number;
+}
+
+/** 검색 결과 카드 하나 (Post + 검색어 하이라이트가 반영된 본문) */
+export interface SearchHit extends Post {
+  /** 매칭된 검색어를 <mark>...</mark>로 감싼 본문. 검색어가 없거나 매칭이 없으면 원문과 동일 */
+  highlightedText: string;
+}
+
 export interface SearchResult {
-  hits: Post[];
+  hits: SearchHit[];
   total: number;
+  /** offset + hits.length < total 이면 true — 프론트가 "더 보기" 버튼 노출 여부 판단에 사용 */
+  hasMore: boolean;
 }
 
 export interface SearchProvider {
@@ -31,5 +44,5 @@ export interface SearchProvider {
   /** 아카이브 백필용 bulk 인덱싱 */
   bulkIndexDocuments(posts: Post[]): Promise<void>;
 
-  search(query: string, filters?: SearchFilters): Promise<SearchResult>;
+  search(query: string, filters?: SearchFilters, pagination?: SearchPagination): Promise<SearchResult>;
 }

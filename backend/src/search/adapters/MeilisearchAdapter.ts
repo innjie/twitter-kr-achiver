@@ -1,11 +1,15 @@
 import { MeiliSearch, type Index } from "meilisearch";
 import type { Post, PostLang, PostRelation, PostSource } from "../../db/DbAdapter";
-import type { SearchFilters, SearchProvider, SearchResult } from "../SearchProvider";
+import type { SearchFilters, SearchHit, SearchPagination, SearchProvider, SearchResult } from "../SearchProvider";
 
 const INDEX_UID = "posts";
 const FILTERABLE_ATTRIBUTES = ["authorUsername", "lang", "relation", "createdAt", "isReply"];
 const SORTABLE_ATTRIBUTES = ["createdAt"];
 const DEFAULT_SEARCH_LIMIT = 20;
+const DEFAULT_SEARCH_OFFSET = 0;
+// mark 태그만 사용 — 프론트에서 dangerouslySetInnerHTML 없이 태그 구간만 파싱해 안전하게 렌더링한다 (XSS 방지)
+const HIGHLIGHT_PRE_TAG = "<mark>";
+const HIGHLIGHT_POST_TAG = "</mark>";
 
 /** Meilisearch에 저장하는 문서 형태. Date는 필터/정렬을 위해 unix seconds(숫자)로 변환해 저장한다. */
 interface MeiliPostDocument {
@@ -131,15 +135,35 @@ export class MeilisearchAdapter implements SearchProvider {
     await this.index.addDocumentsInBatches(posts.map(toMeiliDocument), 1000);
   }
 
-  async search(query: string, filters?: SearchFilters): Promise<SearchResult> {
+  async search(
+    query: string,
+    filters?: SearchFilters,
+    pagination?: SearchPagination,
+  ): Promise<SearchResult> {
+    const limit = pagination?.limit ?? DEFAULT_SEARCH_LIMIT;
+    const offset = pagination?.offset ?? DEFAULT_SEARCH_OFFSET;
+
     const response = await this.index.search(query, {
       filter: buildFilterExpression(filters),
-      limit: DEFAULT_SEARCH_LIMIT,
+      limit,
+      offset,
+      attributesToHighlight: ["text"],
+      highlightPreTag: HIGHLIGHT_PRE_TAG,
+      highlightPostTag: HIGHLIGHT_POST_TAG,
     });
 
+    const hits: SearchHit[] = response.hits.map((hit) => {
+      const post = fromMeiliDocument(hit);
+      const formattedText = hit._formatted?.text;
+      return { ...post, highlightedText: formattedText ?? post.text };
+    });
+
+    const total = response.estimatedTotalHits ?? offset + hits.length;
+
     return {
-      hits: response.hits.map(fromMeiliDocument),
-      total: response.estimatedTotalHits ?? response.hits.length,
+      hits,
+      total,
+      hasMore: offset + hits.length < total,
     };
   }
 }

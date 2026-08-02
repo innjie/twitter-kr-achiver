@@ -1,5 +1,5 @@
 import type { Post } from "../../db/DbAdapter";
-import type { SearchFilters, SearchProvider, SearchResult } from "../SearchProvider";
+import type { SearchFilters, SearchPagination, SearchProvider, SearchResult } from "../SearchProvider";
 
 /**
  * Elasticsearch 어댑터 (선택 검색엔진).
@@ -25,7 +25,7 @@ export class ElasticsearchAdapter implements SearchProvider {
     throw new Error("ElasticsearchAdapter.bulkIndexDocuments: not implemented yet");
   }
 
-  async search(query: string, filters?: SearchFilters): Promise<SearchResult> {
+  async search(query: string, filters?: SearchFilters, pagination?: SearchPagination): Promise<SearchResult> {
     throw new Error("ElasticsearchAdapter.search: not implemented yet");
   }
 }
