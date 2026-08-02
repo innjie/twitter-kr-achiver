@@ -21,7 +21,9 @@ export interface SearchResult {
 }
 
 export interface SearchProvider {
-  /** 인증 없이는 실행 불가 (마스터키/비밀번호 검증은 config/env.ts에서 앱 시작 시 강제) */
+  /** 인덱스/필터 속성 등 초기 설정 보장. 인증 없이는 실행 불가 (마스터키/비밀번호 검증은 config/env.ts에서 앱 시작 시 강제) */
+  connect(): Promise<void>;
+
   indexDocument(post: Post): Promise<void>;
 
   /** 아카이브 백필용 bulk 인덱싱 */

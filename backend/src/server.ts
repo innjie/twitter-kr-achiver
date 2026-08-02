@@ -1,19 +1,22 @@
 import "dotenv/config";
 import { validateEnv } from "./config/env";
 import { createDbAdapter } from "./db";
+import { createSearchProvider } from "./search";
 import { createApp } from "./app";
 
 // 보안 필수 환경변수가 없으면 여기서 즉시 실행이 중단된다 (docs/06_개발가이드.md §9)
 const env = validateEnv();
 
-// TODO: createSearchProvider()로 검색엔진 어댑터를 생성하고
-// X API 폴링·검색 라우트에 연결 (아직 미구현)
+// TODO: X API 폴링 관련 초기화는 추후 구현
 
 async function main() {
   const db = createDbAdapter();
   await db.connect();
 
-  const app = createApp(env, db);
+  const search = createSearchProvider();
+  await search.connect();
+
+  const app = createApp(env, db, search);
 
   const server = app.listen(env.port, () => {
     console.log(`[server] listening on port ${env.port} (mode: ${env.appMode})`);

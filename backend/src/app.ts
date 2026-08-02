@@ -3,9 +3,11 @@ import express, { type ErrorRequestHandler } from "express";
 import type { AppEnv } from "./config/env";
 import { basicAuth } from "./middleware/basicAuth";
 import type { DbAdapter } from "./db/DbAdapter";
+import type { SearchProvider } from "./search/SearchProvider";
 import { createImportRouter } from "./routes/importRoutes";
+import { createSearchRouter } from "./routes/searchRoutes";
 
-export function createApp(env: AppEnv, db: DbAdapter) {
+export function createApp(env: AppEnv, db: DbAdapter, search: SearchProvider) {
   const app = express();
   app.use(express.json());
 
@@ -19,9 +21,10 @@ export function createApp(env: AppEnv, db: DbAdapter) {
   });
 
   app.use(express.static(path.join(__dirname, "..", "public")));
-  app.use(createImportRouter(db));
+  app.use(createImportRouter(db, search));
+  app.use(createSearchRouter(search));
 
-  // TODO: SearchProvider를 사용하는 실제 라우트는 추후 구현 (X API 폴링, 검색 API 등)
+  // TODO: X API 폴링 관련 라우트는 추후 구현
 
   const handleError: ErrorRequestHandler = (err, _req, res, _next) => {
     console.error("[app] unhandled error:", err);

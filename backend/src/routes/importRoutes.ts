@@ -4,6 +4,7 @@ import path from "node:path";
 import { Router } from "express";
 import multer from "multer";
 import type { DbAdapter } from "../db/DbAdapter";
+import type { SearchProvider } from "../search/SearchProvider";
 import { importArchive } from "../archive/importArchive";
 
 // X 사용자명 규칙(영문/숫자/밑줄, 최대 15자)만 허용해 업로드 폼 입력값을 통한 주입/XSS 여지를 차단
@@ -43,7 +44,7 @@ const upload = multer({
   },
 });
 
-export function createImportRouter(db: DbAdapter): Router {
+export function createImportRouter(db: DbAdapter, search: SearchProvider): Router {
   const router = Router();
 
   router.post("/api/import/archive", upload.single("archive"), async (req, res) => {
@@ -61,7 +62,7 @@ export function createImportRouter(db: DbAdapter): Router {
         return;
       }
 
-      const summary = await importArchive(db, req.file.path, ownUsername);
+      const summary = await importArchive(db, search, req.file.path, ownUsername);
       res.json({ status: "ok", summary });
     } catch (err) {
       console.error("[import] 아카이브 임포트 실패:", err);

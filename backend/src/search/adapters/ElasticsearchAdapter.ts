@@ -13,6 +13,10 @@ export class ElasticsearchAdapter implements SearchProvider {
     private readonly password: string,
   ) {}
 
+  async connect(): Promise<void> {
+    throw new Error("ElasticsearchAdapter.connect: not implemented yet");
+  }
+
   async indexDocument(post: Post): Promise<void> {
     throw new Error("ElasticsearchAdapter.indexDocument: not implemented yet");
   }

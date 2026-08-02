@@ -1,5 +1,6 @@
 import * as unzipper from "unzipper";
 import type { DbAdapter, Post } from "../db/DbAdapter";
+import type { SearchProvider } from "../search/SearchProvider";
 import { streamArchiveJsonArray } from "./streamJsonArray";
 import { mapLikeEntry, mapTweetEntry } from "./mapEntries";
 
@@ -19,6 +20,7 @@ export interface ImportSummary {
 
 async function importEntries(
   db: DbAdapter,
+  search: SearchProvider,
   files: unzipper.File[],
   mapEntry: (raw: unknown) => Post | null,
 ): Promise<{ imported: number; skipped: number; maxId: bigint }> {
@@ -26,6 +28,13 @@ async function importEntries(
   let skipped = 0;
   let maxId = 0n;
   let batch: Post[] = [];
+
+  const flush = async () => {
+    if (batch.length === 0) return;
+    await db.batchInsertPosts(batch);
+    await search.bulkIndexDocuments(batch);
+    batch = [];
+  };
 
   for (const file of files) {
     for await (const raw of streamArchiveJsonArray(file.stream())) {
@@ -46,15 +55,12 @@ async function importEntries(
       }
 
       if (batch.length >= BATCH_SIZE) {
-        await db.batchInsertPosts(batch);
-        batch = [];
+        await flush();
       }
     }
   }
 
-  if (batch.length > 0) {
-    await db.batchInsertPosts(batch);
-  }
+  await flush();
 
   return { imported, skipped, maxId };
 }
@@ -65,6 +71,7 @@ async function importEntries(
  */
 export async function importArchive(
   db: DbAdapter,
+  search: SearchProvider,
   zipPath: string,
   ownUsername: string,
 ): Promise<ImportSummary> {
@@ -80,14 +87,16 @@ export async function importArchive(
     );
   }
 
-  const tweetResult = await importEntries(db, tweetFiles, (raw) =>
+  const tweetResult = await importEntries(db, search, tweetFiles, (raw) =>
     mapTweetEntry(raw, ownUsername, savedAt),
   );
   if (tweetResult.maxId > 0n) {
     await db.setLastSyncedId("tweets", tweetResult.maxId.toString());
   }
 
-  const likeResult = await importEntries(db, likeFiles, (raw) => mapLikeEntry(raw, savedAt));
+  const likeResult = await importEntries(db, search, likeFiles, (raw) =>
+    mapLikeEntry(raw, savedAt),
+  );
   if (likeResult.maxId > 0n) {
     await db.setLastSyncedId("likes", likeResult.maxId.toString());
   }
