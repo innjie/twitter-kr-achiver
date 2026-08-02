@@ -40,6 +40,20 @@ export class PostgresAdapter implements DbAdapter {
 
   async connect(): Promise<void> {
     this.pool = new Pool({ connectionString: this.databaseUrl });
+
+    // 다국어(한/영/일/중) 저장이 깨지지 않도록 DB 인코딩이 UTF8인지 확인 (Windows initdb 등에서 다른 인코딩으로 초기화되는 경우가 있음)
+    const encodingResult = await this.pool.query<{ server_encoding: string }>(
+      "SHOW server_encoding",
+    );
+    const encoding = encodingResult.rows[0]?.server_encoding;
+    if (encoding?.toUpperCase() !== "UTF8") {
+      throw new Error(
+        `Postgres 데이터베이스 인코딩이 UTF8이 아닙니다 (현재: ${encoding}). ` +
+          "한국어/일본어/중국어 등 다국어 저장이 깨질 수 있습니다. " +
+          "DB를 삭제하고 `CREATE DATABASE ... ENCODING 'UTF8' TEMPLATE template0`으로 다시 만드세요.",
+      );
+    }
+
     await this.pool.query(POSTGRES_SCHEMA_SQL);
   }
 
