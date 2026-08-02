@@ -13,6 +13,8 @@ interface RawTweetEntry {
     text?: string;
     created_at?: string; // 예: "Wed Oct 10 20:19:24 +0000 2018"
     lang?: string;
+    in_reply_to_status_id_str?: string;
+    in_reply_to_status_id?: string;
     retweeted_status?: {
       id_str?: string;
       id?: string;
@@ -60,6 +62,7 @@ export function mapTweetEntry(raw: unknown, ownUsername: string, savedAt: Date):
 
   const retweetOfId = tweet.retweeted_status?.id_str ?? tweet.retweeted_status?.id ?? null;
   const retweetAuthor = tweet.retweeted_status?.user?.screen_name ?? retweetMatch?.[1] ?? null;
+  const isReply = Boolean(tweet.in_reply_to_status_id_str ?? tweet.in_reply_to_status_id);
 
   return {
     id,
@@ -71,6 +74,7 @@ export function mapTweetEntry(raw: unknown, ownUsername: string, savedAt: Date):
     savedAt,
     url: `https://x.com/${ownUsername}/status/${id}`,
     retweetOfId,
+    isReply,
     source: "archive_import",
   };
 }
@@ -99,6 +103,8 @@ export function mapLikeEntry(raw: unknown, savedAt: Date): Post | null {
     savedAt,
     url,
     retweetOfId: null,
+    // like.js에는 답글 여부 정보가 없음
+    isReply: false,
     source: "archive_import",
   };
 }

@@ -2,23 +2,10 @@ import { Pool, type PoolClient } from "pg";
 import type { DbAdapter, OAuthToken, Post, SyncChannel, SyncState } from "../DbAdapter";
 import { POSTGRES_SCHEMA_SQL } from "../schema/postgres";
 
-interface PostRow {
-  id: string;
-  author_username: string;
-  text: string;
-  lang: string | null;
-  relation: Post["relation"];
-  created_at: Date;
-  saved_at: Date;
-  url: string;
-  retweet_of_id: string | null;
-  source: Post["source"];
-}
-
 const INSERT_POST_SQL = `
   INSERT INTO posts
-    (id, author_username, text, lang, relation, created_at, saved_at, url, retweet_of_id, source)
-  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    (id, author_username, text, lang, relation, created_at, saved_at, url, retweet_of_id, is_reply, source)
+  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
   ON CONFLICT (id) DO NOTHING
 `;
 
@@ -33,6 +20,7 @@ function postParams(post: Post): unknown[] {
     post.savedAt,
     post.url,
     post.retweetOfId,
+    post.isReply,
     post.source,
   ];
 }

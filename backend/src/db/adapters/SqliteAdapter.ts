@@ -9,19 +9,6 @@ function resolveFilePath(databaseUrl: string): string {
   return databaseUrl.startsWith("file:") ? databaseUrl.slice("file:".length) : databaseUrl;
 }
 
-interface PostRow {
-  id: string;
-  author_username: string;
-  text: string;
-  lang: string | null;
-  relation: Post["relation"];
-  created_at: string;
-  saved_at: string;
-  url: string;
-  retweet_of_id: string | null;
-  source: Post["source"];
-}
-
 interface SyncStateRow {
   channel: SyncChannel;
   last_synced_id: string | null;
@@ -37,8 +24,8 @@ interface OAuthTokenRow {
 
 const INSERT_POST_SQL = `
   INSERT OR IGNORE INTO posts
-    (id, author_username, text, lang, relation, created_at, saved_at, url, retweet_of_id, source)
-  VALUES (@id, @authorUsername, @text, @lang, @relation, @createdAt, @savedAt, @url, @retweetOfId, @source)
+    (id, author_username, text, lang, relation, created_at, saved_at, url, retweet_of_id, is_reply, source)
+  VALUES (@id, @authorUsername, @text, @lang, @relation, @createdAt, @savedAt, @url, @retweetOfId, @isReply, @source)
 `;
 
 function postParams(post: Post) {
@@ -52,6 +39,7 @@ function postParams(post: Post) {
     "@savedAt": post.savedAt.toISOString(),
     "@url": post.url,
     "@retweetOfId": post.retweetOfId,
+    "@isReply": post.isReply ? 1 : 0,
     "@source": post.source,
   };
 }

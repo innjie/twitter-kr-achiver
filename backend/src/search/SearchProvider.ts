@@ -13,6 +13,8 @@ export interface SearchFilters {
   until?: Date;
   lang?: PostLang;
   relation?: PostRelation;
+  /** relation과 별개 축인 답글 여부 (is:reply) */
+  isReply?: boolean;
 }
 
 export interface SearchResult {

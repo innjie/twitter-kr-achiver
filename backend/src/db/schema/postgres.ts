@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS posts (
   url             TEXT NOT NULL,
   -- 리트윗 원본 참조. FK로 강제하지 않음: 원본은 대개 타인의 트윗이라 우리 posts에 없는 게 정상
   retweet_of_id   TEXT,
+  -- 답글 여부. relation과 별개 축(예: relation=tweet이면서 동시에 답글일 수 있음)
+  is_reply        BOOLEAN NOT NULL DEFAULT FALSE,
   source          TEXT NOT NULL CHECK (source IN ('archive_import', 'api_poll'))
 );
 

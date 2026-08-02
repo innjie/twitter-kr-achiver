@@ -3,7 +3,7 @@ import type { Post, PostLang, PostRelation, PostSource } from "../../db/DbAdapte
 import type { SearchFilters, SearchProvider, SearchResult } from "../SearchProvider";
 
 const INDEX_UID = "posts";
-const FILTERABLE_ATTRIBUTES = ["authorUsername", "lang", "relation", "createdAt"];
+const FILTERABLE_ATTRIBUTES = ["authorUsername", "lang", "relation", "createdAt", "isReply"];
 const SORTABLE_ATTRIBUTES = ["createdAt"];
 const DEFAULT_SEARCH_LIMIT = 20;
 
@@ -18,6 +18,7 @@ interface MeiliPostDocument {
   savedAt: number;
   url: string;
   retweetOfId: string | null;
+  isReply: boolean;
   source: string;
 }
 
@@ -32,6 +33,7 @@ function toMeiliDocument(post: Post): MeiliPostDocument {
     savedAt: Math.floor(post.savedAt.getTime() / 1000),
     url: post.url,
     retweetOfId: post.retweetOfId,
+    isReply: post.isReply,
     source: post.source,
   };
 }
@@ -47,6 +49,7 @@ function fromMeiliDocument(doc: MeiliPostDocument): Post {
     savedAt: new Date(doc.savedAt * 1000),
     url: doc.url,
     retweetOfId: doc.retweetOfId,
+    isReply: doc.isReply,
     source: doc.source as PostSource,
   };
 }
@@ -74,6 +77,9 @@ function buildFilterExpression(filters?: SearchFilters): string | undefined {
   }
   if (filters.until) {
     clauses.push(`createdAt <= ${Math.floor(filters.until.getTime() / 1000)}`);
+  }
+  if (filters.isReply !== undefined) {
+    clauses.push(`isReply = ${filters.isReply}`);
   }
 
   return clauses.length > 0 ? clauses.join(" AND ") : undefined;
