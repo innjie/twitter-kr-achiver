@@ -6,6 +6,7 @@ import type { DbAdapter } from "./db/DbAdapter";
 import type { SearchProvider } from "./search/SearchProvider";
 import { createImportRouter } from "./routes/importRoutes";
 import { createSearchRouter } from "./routes/searchRoutes";
+import { createAuthRouter } from "./routes/authRoutes";
 
 export function createApp(env: AppEnv, db: DbAdapter, search: SearchProvider) {
   const app = express();
@@ -23,6 +24,7 @@ export function createApp(env: AppEnv, db: DbAdapter, search: SearchProvider) {
   app.use(express.static(path.join(__dirname, "..", "public")));
   app.use(createImportRouter(db, search));
   app.use(createSearchRouter(search));
+  app.use(createAuthRouter(db, env));
 
   // TODO: X API 폴링 관련 라우트는 추후 구현
 
