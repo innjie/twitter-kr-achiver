@@ -15,6 +15,8 @@ export interface AppEnv {
   xClientId?: string;
   xClientSecret?: string;
   xRedirectUri?: string;
+  /** 런타임 폴링 간격(분). 5~15 범위로 clamp (docs/06_개발가이드.md §5-3) */
+  pollIntervalMinutes: number;
 }
 
 function requireEnv(name: string): string {
@@ -39,6 +41,20 @@ function validateTokenEncryptionKey(key: string): string {
     );
   }
   return key;
+}
+
+const POLL_INTERVAL_MIN_MINUTES = 5;
+const POLL_INTERVAL_MAX_MINUTES = 15;
+const POLL_INTERVAL_DEFAULT_MINUTES = 10;
+
+/** X_POLL_INTERVAL_MINUTES를 5~15 범위로 clamp (docs/06_개발가이드.md §5-3 권장 범위) */
+function resolvePollIntervalMinutes(): number {
+  const raw = process.env.X_POLL_INTERVAL_MINUTES;
+  const parsed = raw ? Number(raw) : POLL_INTERVAL_DEFAULT_MINUTES;
+  if (!Number.isFinite(parsed)) {
+    return POLL_INTERVAL_DEFAULT_MINUTES;
+  }
+  return Math.min(Math.max(parsed, POLL_INTERVAL_MIN_MINUTES), POLL_INTERVAL_MAX_MINUTES);
 }
 
 export function validateEnv(): AppEnv {
@@ -80,5 +96,6 @@ export function validateEnv(): AppEnv {
     xClientId: process.env.X_CLIENT_ID || undefined,
     xClientSecret: process.env.X_CLIENT_SECRET || undefined,
     xRedirectUri: process.env.X_REDIRECT_URI || undefined,
+    pollIntervalMinutes: resolvePollIntervalMinutes(),
   };
 }
