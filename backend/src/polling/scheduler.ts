@@ -2,33 +2,64 @@ import type { AppEnv } from "../config/env";
 import type { DbAdapter } from "../db/DbAdapter";
 import type { SearchProvider } from "../search/SearchProvider";
 import { getValidAccessToken } from "../auth/tokenRefresh";
-import { XApiRateLimitError } from "./xApiClient";
-import { pollAllChannels } from "./pollChannels";
+import { pollAllChannels, type PollResult } from "./pollChannels";
 
 export interface PollingHandle {
   stop: () => void;
 }
 
+export interface LastPollStatus {
+  ranAt: Date;
+  result: PollResult;
+}
+
+// 프로세스 인메모리 상태 (pendingAuth.ts와 같은 패턴) — GET /api/polling/status에서 조회.
+// 재시작 시 초기화되는 건 의도된 동작: 재시작 직후 캐치업 폴링이 다시 값을 채운다.
+let lastPollStatus: LastPollStatus | null = null;
+
+export function getLastPollStatus(): LastPollStatus | null {
+  return lastPollStatus;
+}
+
+function recordFailure(err: unknown): void {
+  const message = err instanceof Error ? err.message : String(err);
+  lastPollStatus = {
+    ranAt: new Date(),
+    result: {
+      tweets: 0,
+      likes: 0,
+      bookmarks: 0,
+      errors: (["tweets", "likes", "bookmarks"] as const).map((channel) => ({ channel, message })),
+    },
+  };
+}
+
 async function runPollCycle(db: DbAdapter, search: SearchProvider, env: AppEnv): Promise<void> {
-  const accessToken = await getValidAccessToken(db, env);
-  if (!accessToken) {
-    // X 계정이 아직 연동되지 않은 경우 (아카이브 임포트만 쓰는 사용자) — 조용히 스킵
+  let accessToken: string | null;
+  try {
+    accessToken = await getValidAccessToken(db, env);
+  } catch (err) {
+    console.error("[polling] 토큰 갱신 실패:", err);
+    recordFailure(err);
     return;
   }
 
-  try {
-    const result = await pollAllChannels(db, search, accessToken);
+  if (!accessToken) {
+    // X 계정이 아직 연동되지 않은 경우 (아카이브 임포트만 쓰는 사용자) — 조용히 스킵, 상태도 갱신하지 않음
+    return;
+  }
+
+  const result = await pollAllChannels(db, search, accessToken);
+  lastPollStatus = { ranAt: new Date(), result };
+
+  if (result.errors.length > 0) {
+    console.warn(
+      `[polling] 일부 채널 실패: ${result.errors.map((e) => `${e.channel}(${e.status ?? "?"})`).join(", ")}`,
+    );
+  } else {
     console.log(
       `[polling] 완료 — 신규: tweets ${result.tweets}건, likes ${result.likes}건, bookmarks ${result.bookmarks}건`,
     );
-  } catch (err) {
-    if (err instanceof XApiRateLimitError) {
-      console.warn(
-        `[polling] rate limit 도달, 이번 주기 건너뜀. 초기화 시각: ${err.resetAt?.toISOString() ?? "알 수 없음"}`,
-      );
-      return;
-    }
-    console.error("[polling] 폴링 사이클 실패:", err);
   }
 }
 

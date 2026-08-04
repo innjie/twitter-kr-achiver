@@ -1,6 +1,14 @@
 import type { DbAdapter, Post, SyncChannel } from "../db/DbAdapter";
 import type { SearchProvider } from "../search/SearchProvider";
-import { getMe, listBookmarks, listLikedTweets, listTweets, type XApiListResponse } from "./xApiClient";
+import {
+  getMe,
+  listBookmarks,
+  listLikedTweets,
+  listTweets,
+  XApiError,
+  type XApiListResponse,
+  type XApiUser,
+} from "./xApiClient";
 import { buildLookups, mapApiRelationEntry, mapApiTweetEntry } from "./mapApiEntry";
 
 /** likes/bookmarks는 since_id를 지원하지 않아 페이지워크로 신규분을 찾는다. 폭주 방지용 안전 상한. */
@@ -110,10 +118,25 @@ async function pollRelationChannel(
   return total;
 }
 
+export interface PollChannelError {
+  channel: SyncChannel;
+  status?: number;
+  message: string;
+}
+
 export interface PollResult {
   tweets: number;
   likes: number;
   bookmarks: number;
+  /** 프론트 경고 배너 등에서 쓸 수 있도록 채널별 실패 정보를 담는다 (성공이면 빈 배열) */
+  errors: PollChannelError[];
+}
+
+function describeError(err: unknown): { status?: number; message: string } {
+  if (err instanceof XApiError) {
+    return { status: err.status, message: err.message };
+  }
+  return { message: err instanceof Error ? err.message : String(err) };
 }
 
 /** 세 채널(tweets/likes/bookmarks)을 순서대로 폴링한다. 채널 하나가 실패해도 나머지는 계속 진행한다. */
@@ -122,13 +145,25 @@ export async function pollAllChannels(
   search: SearchProvider,
   accessToken: string,
 ): Promise<PollResult> {
-  const me = await getMe(accessToken);
-  const result: PollResult = { tweets: 0, likes: 0, bookmarks: 0 };
+  const result: PollResult = { tweets: 0, likes: 0, bookmarks: 0, errors: [] };
+
+  let me: XApiUser;
+  try {
+    me = await getMe(accessToken);
+  } catch (err) {
+    console.error("[polling] 사용자 조회(getMe) 실패:", err);
+    const described = describeError(err);
+    for (const channel of ["tweets", "likes", "bookmarks"] as const) {
+      result.errors.push({ channel, ...described });
+    }
+    return result;
+  }
 
   try {
     result.tweets = await pollTweetsChannel(db, search, accessToken, me.id, me.username);
   } catch (err) {
     console.error("[polling] tweets 채널 폴링 실패:", err);
+    result.errors.push({ channel: "tweets", ...describeError(err) });
   }
 
   try {
@@ -137,6 +172,7 @@ export async function pollAllChannels(
     );
   } catch (err) {
     console.error("[polling] likes 채널 폴링 실패:", err);
+    result.errors.push({ channel: "likes", ...describeError(err) });
   }
 
   try {
@@ -145,6 +181,7 @@ export async function pollAllChannels(
     );
   } catch (err) {
     console.error("[polling] bookmarks 채널 폴링 실패:", err);
+    result.errors.push({ channel: "bookmarks", ...describeError(err) });
   }
 
   return result;

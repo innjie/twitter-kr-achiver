@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { searchPosts, SearchApiError, type SearchHit } from "./api/search";
+import { getPollingStatus } from "./api/pollingStatus";
 import { SearchBar } from "./components/SearchBar";
 import { RelationTabs, type RelationTabValue } from "./components/RelationTabs";
 import { LangFilter } from "./components/LangFilter";
 import { Feed } from "./components/Feed";
+import { PollingWarningBanner } from "./components/PollingWarningBanner";
 
 const LIMIT = 20;
 
@@ -23,6 +25,7 @@ function App() {
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pollingWarning, setPollingWarning] = useState<string | null>(null);
 
   async function runSearch(params: RunSearchParams) {
     setLoading(true);
@@ -50,6 +53,12 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [relation, lang]);
 
+  useEffect(() => {
+    void getPollingStatus().then((status) => {
+      setPollingWarning(status.connected && status.hasError ? (status.message ?? null) : null);
+    });
+  }, []);
+
   function handleSearch(q: string) {
     setQuery(q);
     void runSearch({ q, relation, lang, offset: 0, append: false });
@@ -61,6 +70,8 @@ function App() {
 
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-4 p-4">
+      {pollingWarning && <PollingWarningBanner message={pollingWarning} />}
+
       <div className="sticky top-0 z-10 bg-white py-2">
         <SearchBar onSearch={handleSearch} />
       </div>
