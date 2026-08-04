@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# 커밋 전 gitleaks로 스테이징된 변경사항에서 시크릿(API 키/토큰/비밀번호 등) 유출 여부를 검사한다.
+# 최초 1회 설정: git config core.hooksPath .githooks
+
+set -euo pipefail
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "[pre-commit] gitleaks가 설치되어 있지 않아 커밋을 차단합니다."
+  echo "설치: brew install gitleaks  (또는 https://github.com/gitleaks/gitleaks#installing)"
+  exit 1
+fi
+
+repo_root="$(git rev-parse --show-toplevel)"
+
+if ! gitleaks protect --staged --source "$repo_root" -v; then
+  echo "[pre-commit] gitleaks가 스테이징된 변경사항에서 시크릿으로 의심되는 내용을 발견해 커밋을 차단했습니다."
+  echo "오탐인 경우 .gitleaks.toml의 allowlist에 추가하세요."
+  exit 1
+fi
