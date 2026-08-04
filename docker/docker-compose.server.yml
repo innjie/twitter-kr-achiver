@@ -1,0 +1,88 @@
+# 서버(홈서버/VPS) 배포용 오버레이. 로컬 전용 docker-compose.yml 위에 겹쳐서 사용한다:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.server.yml \
+#     --profile server-meilisearch --env-file ../backend/.env up -d
+#   (Elasticsearch를 쓴다면 --profile server-elasticsearch로 교체, 최초 실행 시 --build 추가)
+#
+# 로컬 전용 profile(meilisearch/elasticsearch)과 서버용 profile(server-meilisearch/
+# server-elasticsearch)을 의도적으로 분리했다: `ports: []`로 베이스 파일의 포트 바인딩을
+# 지우는 override는 compose 버전에 따라 무시되는 경우가 있어(실제로 이 프로젝트 개발 환경의
+# docker compose v2.15.1에서 재현/확인함), 검색엔진을 별도 서비스(meilisearch-server/
+# elasticsearch-server)로 새로 정의해 애초에 ports를 선언하지 않는 방식으로 우회했다.
+#
+# [보안 필수] 이 프로필로 띄우면 backend/meilisearch/elasticsearch는 호스트에 포트를 전혀
+# 노출하지 않고 `internal` 네트워크로만 서로 통신한다. 외부에 여는 건 caddy의 80/443뿐이다.
+# 80/443을 실제 공인 인터넷에 노출하기 전 반드시 확인:
+#   1) .env의 DOMAIN이 이 서버를 실제로 가리키는 도메인인지 (Caddy가 그 값으로
+#      Let's Encrypt 인증서를 자동 발급한다 — Caddyfile 참고, 미설정 시 자체 서명 인증서로 동작)
+#   2) .env의 APP_USERNAME/APP_PASSWORD가 설정되어 있는지 (APP_MODE=server 시 앱이 강제)
+#   3) 검색엔진 포트(7700/9200)를 방화벽에서 별도로 열지 않았는지
+
+services:
+  backend:
+    build:
+      context: ../backend
+    profiles: ["server-meilisearch", "server-elasticsearch"]
+    env_file:
+      - ../backend/.env
+    environment:
+      # backend/.env의 MEILI_HOST/ELASTIC_HOST는 로컬 프로필(127.0.0.1) 기준값이라,
+      # 컨테이너 내부에서는 같은 internal 네트워크의 서비스명으로 덮어써야 한다.
+      MEILI_HOST: http://meilisearch-server:7700
+      ELASTIC_HOST: https://elasticsearch-server:9200
+    volumes:
+      - backend_data:/app/data
+    networks:
+      - internal
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    profiles: ["server-meilisearch", "server-elasticsearch"]
+    depends_on:
+      - backend
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - internal
+    restart: unless-stopped
+
+  meilisearch-server:
+    image: getmeili/meilisearch:v1.10
+    profiles: ["server-meilisearch"]
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-}
+      MEILI_ENV: production
+    volumes:
+      - meilisearch_data:/meili_data
+    networks:
+      - internal
+
+  elasticsearch-server:
+    build:
+      context: .
+      dockerfile: elasticsearch.Dockerfile
+    profiles: ["server-elasticsearch"]
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "true"
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-}
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - internal
+
+networks:
+  internal:
+
+volumes:
+  backend_data:
+  caddy_data:
+  caddy_config:

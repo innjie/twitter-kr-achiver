@@ -1,18 +1,23 @@
 # 로컬 개발용 Docker Compose 뼈대.
-# 검색엔진은 profile로 선택 실행 (.env의 SEARCH_ENGINE과 맞춰서 사용):
-#   Meilisearch:   docker compose --profile meilisearch up -d
-#   Elasticsearch: docker compose --profile elasticsearch up -d
+# 검색엔진은 profile로 선택 실행 (.env의 SEARCH_ENGINE과 맞춰서 사용, --env-file로 backend/.env 지정):
+#   Meilisearch:   docker compose --profile meilisearch --env-file ../backend/.env up -d
+#   Elasticsearch: docker compose --profile elasticsearch --env-file ../backend/.env up -d --build
 #
 # [보안 필수] 모든 포트는 127.0.0.1에만 바인딩 (docs/06_개발가이드.md §9 #3).
-# 서버(홈서버/VPS) 배포 시에는 별도의 리버스 프록시 + 내부 네트워크 구성이 필요하며,
-# 이 파일은 아직 그 프로필을 포함하지 않은 로컬 전용 뼈대 상태입니다.
+# 서버(홈서버/VPS) 배포는 docker-compose.server.yml 오버레이 참고 (TODO #8/#9).
+#
+# [주의] MEILI_MASTER_KEY/ELASTIC_PASSWORD 값 검증은 여기서 `:?`(필수) 문법으로 강제하지 않는다 —
+# docker compose는 interpolation을 profile 필터링 이전에 수행하므로, `--profile meilisearch`만
+# 켜도 비활성 상태인 elasticsearch 서비스의 ELASTIC_PASSWORD까지 없으면 실행 자체가 막히는
+# 버그가 있었다(실제 재현 확인). 실제 필수 검증은 앱 시작 시 `validateEnv()`가
+# 선택된 SEARCH_ENGINE 기준으로 수행한다.
 
 services:
   meilisearch:
     image: getmeili/meilisearch:v1.10
     profiles: ["meilisearch"]
     environment:
-      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:?MEILI_MASTER_KEY가 .env에 설정되어야 합니다}
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-}
       MEILI_ENV: development
     ports:
       - "127.0.0.1:7700:7700"
@@ -28,7 +33,7 @@ services:
     environment:
       discovery.type: single-node
       xpack.security.enabled: "true"
-      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:?ELASTIC_PASSWORD가 .env에 설정되어야 합니다}
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-}
     ports:
       - "127.0.0.1:9200:9200"
     volumes:
