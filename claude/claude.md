@@ -54,7 +54,7 @@ API/DB/검색엔진/폴링 관련 결정 히스토리는 `claude/rules/backend.m
 2. [x] DB 어댑터 실제 구현
 3. [x] 초기 아카이브 임포트 파이프라인
 4. [x] Meilisearch 연동
-5. [ ] Elasticsearch 어댑터 확장 — `xpack.security.enabled` 강제 확인, Nori/Kuromoji/SmartCN 플러그인 연동, `lang` 필드 기준 언어별 필드 매핑
+5. [x] Elasticsearch 어댑터 확장 — `xpack.security.enabled` 강제 확인, Nori/Kuromoji/SmartCN 플러그인 연동, `lang` 필드 기준 언어별 필드 매핑
 6. [x] 고급 검색 쿼리 파서
 7. [x] 런타임 폴링 로직 — X API 크레딧 문제로 실데이터 폴링 자체는 라이브 검증 못함, 동기화 실패 시 프론트 경고 배너 추가함 (상세는 `claude/rules/backend.md`/`claude/rules/frontend.md` 참고)
 8. [ ] Docker Compose 서버 프로필 — 리버스 프록시(Caddy/Nginx) 뒤 내부 네트워크 분리, 검색엔진 외부 포트 미노출

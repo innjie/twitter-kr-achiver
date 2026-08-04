@@ -19,6 +19,7 @@ export function createSearchProvider(): SearchProvider {
     case "elasticsearch":
       return new ElasticsearchAdapter(
         process.env.ELASTIC_HOST ?? "https://127.0.0.1:9200",
+        process.env.ELASTIC_USERNAME ?? "elastic",
         process.env.ELASTIC_PASSWORD ?? "",
       );
     default:

@@ -53,6 +53,18 @@
 - 기본 검색 API(`GET /api/search?q=&lang=&relation=`) 추가. `lang`은 ko/en/ja/zh로 제한하지 않음 — X API의 `lang` 필드가 BCP-47 코드를 그대로 줄 수 있어 4개로 제한하면 실제 존재하는 데이터를 걸러낼 수 없는 문제가 있었음 (사용자와 논의 후 제한 해제 결정). `relation`은 스키마상 4값 고정이라 계속 엄격 검증. `from:`/`since:`/`until:` 등 고급 문법 파서는 TODO #6으로 별도 유지.
 - 검증: Docker 미설치 환경이라 Meilisearch Windows 바이너리를 직접 다운로드해 로컬 실행, 실제 서버 기동으로 인덱스/설정 생성 확인 후 합성 아카이브 업로드 → 한국어 전문검색/`lang`/`relation` 필터 → 결과 확인까지 end-to-end로 검증 (테스트 산출물은 전부 정리함).
 
+### TODO #5 — Elasticsearch 어댑터 확장
+완료. 결정 히스토리:
+- 남은 작업 중 영향도가 낮은 것부터 진행하자는 사용자 요청에 따라 순서상 우선순위로 선택 — 어댑터 패턴이라 기본 경로(Meilisearch)에는 영향 없음.
+- **언어별 필드 매핑**: Meilisearch는 Charabia 토크나이저가 한 필드(`text`)에서 다국어를 자동 처리하지만, Elasticsearch는 언어별 analyzer를 필드 단위로 지정해야 해서 문서 구조 자체가 달라짐. `text_ko`(nori)/`text_ja`(kuromoji)/`text_zh`(smartcn)/`text`(standard, en 및 그 외 BCP-47 코드 폴백) 4개 필드로 설계하고, `post.lang` 값에 따라 색인 시 해당 필드 하나에만 본문을 채우는 방식(`toEsDocument`)으로 구현. `PostLang`이 4개 값으로 제한되지 않는다는 TODO #4 결정과 일관되게, 매핑에 없는 언어는 전부 `text`(standard analyzer)로 폴백.
+- **검색 시 필드 선택**: `lang:` 필터가 있으면 해당 언어 필드 하나만, 없으면 4개 필드 전체를 `multi_match(best_fields)`로 검색 — 쿼리 파서(TODO #6)가 만드는 `SearchFilters`를 그대로 재사용.
+- **플러그인 설치**: 베이스 이미지(`docker.elastic.co/elasticsearch/elasticsearch:8.15.0`)에 Nori/Kuromoji/SmartCN이 기본 포함되어 있지 않아, `docker/elasticsearch.Dockerfile`을 신규 작성(`elasticsearch-plugin install analysis-nori analysis-kuromoji analysis-smartcn`)하고 `docker-compose.yml`의 elasticsearch 서비스를 `image:` 대신 `build:`로 전환.
+- **`xpack.security.enabled` 확인**: 기존 `docker-compose.yml`에 이미 `"true"`로 설정되어 있었고 `ELASTIC_PASSWORD` 필수 환경변수로도 강제되고 있어(`config/env.ts`) 추가 조치 불필요. 어댑터 쪽에서는 `@elastic/elasticsearch` Client에 `auth: { username, password }`를 연결.
+- **`ELASTIC_USERNAME` 배선**: `.env.example`에는 있었지만 코드에서 미사용이던 죽은 변수를 발견, `search/index.ts` 팩토리가 `ElasticsearchAdapter` 생성자로 넘기도록 연결(기본값 `"elastic"`).
+- **TLS**: `xpack.security.enabled=true`가 ES HTTP 레이어에 자체 서명 인증서를 자동 적용하므로 `tls: { rejectUnauthorized: false }`로 허용. 포트가 127.0.0.1에만 바인딩되고 비밀번호 인증이 필수로 강제되는 구성이라 감수 가능한 트레이드오프로 판단(정식 CA 인증서 구성은 범위 밖).
+- 하이라이트는 Meilisearch와 동일하게 `<mark>`/`</mark>` 태그 컨벤션을 유지해 프론트 렌더링 로직을 공유.
+- **검증 한계**: 이 개발 환경에 Docker가 설치되어 있지 않아(기존에도 known limitation, `docs/07_사용가이드.md` §9 참고) 실제 Elasticsearch 인스턴스로 커넥트/색인/검색을 라이브 검증하지 못함. 대신 `backend`에서 `npm install` 후 `npx tsc --noEmit`으로 타입 검증(에러 없음, `@elastic/elasticsearch` 8.15 클라이언트 타입 기준)까지만 확인. Docker를 쓸 수 있는 환경이 되면(또는 TODO #8 서버 프로필 작업 시) `docker compose --profile elasticsearch up -d`로 실제 플러그인 설치/인덱스 매핑/다국어 검색 동작을 반드시 한 번 확인 필요.
+
 ### TODO #6 — 고급 검색 쿼리 파서
 완료. 결정 히스토리:
 - `backend/src/search/queryParser.ts`: 정규식 1패스로 `from:`/`since:`/`until:`/`lang:`/`is:` 토큰을 추출해 필터로 변환, 나머지를 자유 검색어로 사용. 별도 NLP 라이브러리 없이 개발가이드 §7-4 지침대로 구현.
