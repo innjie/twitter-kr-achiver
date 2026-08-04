@@ -6,7 +6,6 @@ node_modules/
 .DS_Store
 dist/
 data/
-docs/06_개발가이드.md
 
 # Claude Code 로컬 전용 설정 (머신별 권한 등, 공유 불필요)
 .claude/settings.local.json
