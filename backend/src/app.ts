@@ -8,6 +8,7 @@ import { createImportRouter } from "./routes/importRoutes";
 import { createSearchRouter } from "./routes/searchRoutes";
 import { createAuthRouter } from "./routes/authRoutes";
 import { createPollingRouter } from "./routes/pollingRoutes";
+import { createAdminRouter } from "./routes/adminRoutes";
 
 export function createApp(env: AppEnv, db: DbAdapter, search: SearchProvider) {
   const app = express();
@@ -27,6 +28,7 @@ export function createApp(env: AppEnv, db: DbAdapter, search: SearchProvider) {
   app.use(createSearchRouter(search));
   app.use(createAuthRouter(db, env));
   app.use(createPollingRouter(db));
+  app.use(createAdminRouter(db, search));
 
   const handleError: ErrorRequestHandler = (err, _req, res, _next) => {
     console.error("[app] unhandled error:", err);

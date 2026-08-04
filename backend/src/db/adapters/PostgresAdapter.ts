@@ -1,5 +1,5 @@
 import { Pool, type PoolClient } from "pg";
-import type { DbAdapter, OAuthToken, Post, SyncChannel, SyncState } from "../DbAdapter";
+import type { DbAdapter, OAuthToken, Post, PostRelation, PostSource, SyncChannel, SyncState } from "../DbAdapter";
 import { POSTGRES_SCHEMA_SQL } from "../schema/postgres";
 
 const INSERT_POST_SQL = `
@@ -23,6 +23,36 @@ function postParams(post: Post): unknown[] {
     post.isReply,
     post.source,
   ];
+}
+
+interface PostRow {
+  id: string;
+  author_username: string;
+  text: string;
+  lang: string;
+  relation: PostRelation;
+  created_at: Date;
+  saved_at: Date;
+  url: string;
+  retweet_of_id: string | null;
+  is_reply: boolean;
+  source: PostSource;
+}
+
+function rowToPost(row: PostRow): Post {
+  return {
+    id: row.id,
+    authorUsername: row.author_username,
+    text: row.text,
+    lang: row.lang,
+    relation: row.relation,
+    createdAt: new Date(row.created_at),
+    savedAt: new Date(row.saved_at),
+    url: row.url,
+    retweetOfId: row.retweet_of_id,
+    isReply: row.is_reply,
+    source: row.source,
+  };
 }
 
 /** Postgres 어댑터 (선택 DB). */
@@ -115,6 +145,14 @@ export class PostgresAdapter implements DbAdapter {
        ON CONFLICT (channel) DO UPDATE SET last_synced_id = $2, updated_at = now()`,
       [channel, id],
     );
+  }
+
+  async getPostsPage(offset: number, limit: number): Promise<Post[]> {
+    const result = await this.connection.query<PostRow>(
+      "SELECT * FROM posts ORDER BY id LIMIT $1 OFFSET $2",
+      [limit, offset],
+    );
+    return result.rows.map(rowToPost);
   }
 
   async getOAuthToken(): Promise<OAuthToken | null> {

@@ -63,7 +63,14 @@
 - **`ELASTIC_USERNAME` 배선**: `.env.example`에는 있었지만 코드에서 미사용이던 죽은 변수를 발견, `search/index.ts` 팩토리가 `ElasticsearchAdapter` 생성자로 넘기도록 연결(기본값 `"elastic"`).
 - **TLS**: `xpack.security.enabled=true`가 ES HTTP 레이어에 자체 서명 인증서를 자동 적용하므로 `tls: { rejectUnauthorized: false }`로 허용. 포트가 127.0.0.1에만 바인딩되고 비밀번호 인증이 필수로 강제되는 구성이라 감수 가능한 트레이드오프로 판단(정식 CA 인증서 구성은 범위 밖).
 - 하이라이트는 Meilisearch와 동일하게 `<mark>`/`</mark>` 태그 컨벤션을 유지해 프론트 렌더링 로직을 공유.
-- **검증 한계**: 이 개발 환경에 Docker가 설치되어 있지 않아(기존에도 known limitation, `docs/07_사용가이드.md` §9 참고) 실제 Elasticsearch 인스턴스로 커넥트/색인/검색을 라이브 검증하지 못함. 대신 `backend`에서 `npm install` 후 `npx tsc --noEmit`으로 타입 검증(에러 없음, `@elastic/elasticsearch` 8.15 클라이언트 타입 기준)까지만 확인. Docker를 쓸 수 있는 환경이 되면(또는 TODO #8 서버 프로필 작업 시) `docker compose --profile elasticsearch up -d`로 실제 플러그인 설치/인덱스 매핑/다국어 검색 동작을 반드시 한 번 확인 필요.
+- **검증 한계**: 이 개발 환경에 Docker가 설치되어 있지 않아(기존에도 known limitation, `docs/07_사용가이드.md` §9 참고) 실제 Elasticsearch 인스턴스로 커넥트/색인/검색을 라이브 검증하지 못함. 대신 `backend`에서 `npm install` 후 `npx tsc --noEmit`으로 타입 검증(에러 없음, `@elastic/elasticsearch` 8.15 클라이언트 타입 기준)까지만 확인. Docker를 쓸 수 있는 환경이 되면(또는 TODO #8 서버 프로필 작업 시) `docker compose --profile elasticsearch up -d --build`로 실제 플러그인 설치/인덱스 매핑/다국어 검색 동작을 반드시 한 번 확인 필요.
+
+**후속 작업 — 검색엔진 전환 시 재색인(reindex) 기능 추가**
+- 어댑터 구현 완료 후 사용자가 "Meilisearch로 이미 데이터를 쌓아둔 뒤 Elasticsearch로 전환하면 어떻게 되는지" 질문 → 코드 확인 결과 `bulkIndexDocuments`가 아카이브 임포트/폴링 시점에만 호출되고 있어, DB 전체를 검색엔진에 재색인하는 경로가 아예 없다는 갭을 발견 (검색엔진 전환 시 DB에는 데이터가 있어도 새 엔진 인덱스는 비어있어 검색이 안 되는 상태).
+- `DbAdapter`에 `getPostsPage(offset, limit)` 추가(id 오름차순, Sqlite/Postgres 각각 구현) → `search/reindex.ts`의 `reindexAll()`이 1,000건 단위로 순회하며 `search.bulkIndexDocuments()` 호출 → `POST /api/admin/reindex` 라우트(`routes/adminRoutes.ts`)로 노출.
+- 별도 삭제/클리어 없이 그대로 재색인하는 이유: `indexDocument`/`bulkIndexDocuments`는 Meilisearch/Elasticsearch 둘 다 id 기준 upsert라 이미 색인된 문서를 다시 넣어도 안전(idempotent) — 이 앱에는 게시글 삭제 기능 자체가 없어 새 엔진 인덱스에 존재해선 안 되는 stale 문서가 생길 여지도 없음.
+- `docs/07_사용가이드.md` §3-2/§3-3/§4-2 갱신(v1.6→v1.7): 기존 문서가 실제 구현과 어긋나 있던 부분(수동 `elastic.co/start-local` 설치 스크립트+수동 플러그인 설치 안내, `text_en` 필드명 오기, 전환 시 "재인덱싱이 자동으로 진행됩니다"라는 잘못된 설명, `bin/elasticsearch-reset-password` 수동 실행 안내)을 실제 코드 기준(커스텀 Dockerfile 빌드, `text` 폴백 필드명, 수동 `/api/admin/reindex` 호출 필요, `.env`의 `ELASTIC_PASSWORD`로 컨테이너 기동 시 자동 설정)으로 정정. 셀프호스팅 사용자가 잘못된 안내로 "전환했는데 왜 검색이 안 되지"라는 상황에 빠지지 않도록 하기 위함.
+- 검증: `npx tsc --noEmit` 통과. 실제 재색인 동작은 마찬가지로 Docker 미설치로 라이브 검증 못함(위 검증 한계와 동일 사유).
 
 ### TODO #6 — 고급 검색 쿼리 파서
 완료. 결정 히스토리:

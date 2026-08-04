@@ -58,6 +58,9 @@ export interface DbAdapter {
   getSyncState(channel: SyncChannel): Promise<SyncState>;
   setLastSyncedId(channel: SyncChannel, id: string): Promise<void>;
 
+  /** 재색인 등 전체 스캔용 페이지네이션 조회 (id 오름차순) */
+  getPostsPage(offset: number, limit: number): Promise<Post[]>;
+
   getOAuthToken(): Promise<OAuthToken | null>;
   saveOAuthToken(token: OAuthToken): Promise<void>;
 }

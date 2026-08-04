@@ -1,7 +1,7 @@
 import { DatabaseSync } from "node:sqlite";
 import fs from "node:fs";
 import path from "node:path";
-import type { DbAdapter, OAuthToken, Post, SyncChannel, SyncState } from "../DbAdapter";
+import type { DbAdapter, OAuthToken, Post, PostRelation, PostSource, SyncChannel, SyncState } from "../DbAdapter";
 import { SQLITE_SCHEMA_SQL } from "../schema/sqlite";
 
 /** "file:./data/archive.db" 형태의 DATABASE_URL에서 실제 파일 경로를 추출 */
@@ -20,6 +20,36 @@ interface OAuthTokenRow {
   refresh_token: string;
   expires_at: string;
   updated_at: string;
+}
+
+interface PostRow {
+  id: string;
+  author_username: string;
+  text: string;
+  lang: string;
+  relation: PostRelation;
+  created_at: string;
+  saved_at: string;
+  url: string;
+  retweet_of_id: string | null;
+  is_reply: number;
+  source: PostSource;
+}
+
+function rowToPost(row: PostRow): Post {
+  return {
+    id: row.id,
+    authorUsername: row.author_username,
+    text: row.text,
+    lang: row.lang,
+    relation: row.relation,
+    createdAt: new Date(row.created_at),
+    savedAt: new Date(row.saved_at),
+    url: row.url,
+    retweetOfId: row.retweet_of_id,
+    isReply: row.is_reply === 1,
+    source: row.source,
+  };
 }
 
 const INSERT_POST_SQL = `
@@ -133,6 +163,13 @@ export class SqliteAdapter implements DbAdapter {
          ON CONFLICT(channel) DO UPDATE SET last_synced_id = @id, updated_at = @updatedAt`,
       )
       .run({ "@channel": channel, "@id": id, "@updatedAt": new Date().toISOString() });
+  }
+
+  async getPostsPage(offset: number, limit: number): Promise<Post[]> {
+    const rows = this.connection
+      .prepare("SELECT * FROM posts ORDER BY id LIMIT @limit OFFSET @offset")
+      .all({ "@limit": limit, "@offset": offset }) as unknown as PostRow[];
+    return rows.map(rowToPost);
   }
 
   async getOAuthToken(): Promise<OAuthToken | null> {
