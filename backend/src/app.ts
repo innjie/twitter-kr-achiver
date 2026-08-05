@@ -14,9 +14,16 @@ export function createApp(env: AppEnv, db: DbAdapter, search: SearchProvider) {
   const app = express();
   app.use(express.json());
 
-  // #8 서버 모드는 Basic Auth 없이 실행 차단 (validateEnv가 이미 자격증명 존재를 보장)
+  // #8 서버 모드 Basic Auth — 공인 노출 시에는 validateEnv가 자격증명 존재를 보장,
+  // Tailscale 등 사설 네트워크 전용 노출이면 자격증명 없이 실행될 수 있음(의도된 동작)
   if (env.appMode === "server") {
-    app.use(basicAuth(env.appUsername!, env.appPassword!));
+    if (env.appUsername && env.appPassword) {
+      app.use(basicAuth(env.appUsername, env.appPassword));
+    } else {
+      console.warn(
+        "[app] Basic Auth 없이 서버 모드로 실행 중입니다. Tailscale 등 사설 네트워크 전용 노출인지 확인하세요.",
+      );
+    }
   }
 
   app.get("/health", (_req, res) => {

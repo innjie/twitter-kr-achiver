@@ -127,3 +127,11 @@
 - **알려진 한계**: Tailscale 로그인, Cloudflare Tunnel 실제 연결까지는 검증하지 못함 — 둘 다 사용자 본인 계정의 브라우저 로그인/OAuth가 필요해 제가 대신할 수 없고, 이 개발 환경은 Docker 데몬도 꺼져 있어 컨테이너 자체를 기동할 수도 없음(사용자와 논의 후 "가이드 먼저 작성, 실제 테스트는 사용자가 직접" 방향으로 진행하기로 결정). `docs/07_사용가이드.md` §4-5-1/§4-5-2에 계정 발급부터 단계별로 안내해뒀으니, 사용자가 실제로 계정을 만들고 `.env`에 값을 채운 뒤 직접(또는 Docker 데몬이 있는 환경에서 함께) 기동 테스트가 필요.
 - `docs/07_사용가이드.md` v1.9: §4-5-1(Tailscale)/§4-5-2(Cloudflare Tunnel) 계정 발급+로그인+실행 가이드 신규 추가, §2-2/§4-7 명령어를 `https` profile 분리에 맞춰 갱신. `.env.example`에 `TS_AUTHKEY`/`TS_HOSTNAME`/`CLOUDFLARE_TUNNEL_TOKEN` 추가.
 - 검증: 로컬에 `gitleaks` brew 설치 후, AWS 시크릿 패턴이 포함된 더미 `.env` 파일을 스테이징해 커밋 시도 → 차단되고 실제 커밋이 생성되지 않는 것을 `git log` 재확인, 더미 파일 정리 후 시크릿 없는 정상 변경으로 커밋 시도 → 통과되는 것까지 확인(테스트 커밋은 이후 `git reset --soft`로 정리, 워킹 트리 변경사항은 그대로 유지).
+
+### TODO #14 — APP_USERNAME/APP_PASSWORD 노출 방식별 on/off
+완료. 결정 히스토리:
+- 사용자가 실배포 진행 중 "이 Basic Auth 기능을 on/off 할 수 있게 만들 수 없냐"고 질문 → 완전 자유 스위치(별도 `AUTH_ENABLED` 플래그로 공인 노출 상태에서도 끌 수 있게)는 `claude.md`의 "서버 모드는 Basic Auth 없이 실행 차단" 보안 필수 사항과 충돌할 위험이 있어, AskUserQuestion으로 세 가지 방향(노출 방식별 자동 적용 / 완전 자유 스위치 / 토글 없이 자격증명 입력만 더 쉽게)을 제시하고 사용자가 "노출 방식별 자동 적용"을 선택.
+- **구현**: `backend/src/config/env.ts`의 `validateEnv()`에서 `DOMAIN` 또는 `CLOUDFLARE_TUNNEL_TOKEN`이 설정된 경우("공인 노출")만 `APP_USERNAME`/`APP_PASSWORD`를 `requireEnv`로 강제, 그 외(Tailscale 전용 등 사설 네트워크만 쓰는 구성)에는 둘 다 비워두거나 둘 다 채우는 것만 허용(하나만 설정 시 시작 시 에러 — 설정 실수 방지). `backend/src/app.ts`는 두 값이 모두 존재할 때만 `basicAuth` 미들웨어를 적용하고, 없으면 콘솔 경고 로그만 출력하고 그대로 기동.
+- **판단 근거**: 공인 노출(도메인 연결/Cloudflare Tunnel)은 URL만 알면 누구나 접근 가능하므로 인증 필수를 그대로 유지, Tailscale은 이미 사설 VPN 메시 네트워크로 접근 자체가 인증된 기기로 제한되므로 이중 인증을 선택 사항으로 완화해도 보안 원칙(§"보안 필수 사항")을 위반하지 않는다고 판단.
+- `docs/06_개발가이드.md`(위험 매트릭스 #8, 보안 필수 사항), `docs/07_사용가이드.md` §4-5, `claude/claude.md`(보안 필수 사항, TODO #14) 함께 갱신.
+- 실제 `APP_USERNAME`/`APP_PASSWORD` 값 입력(계정 생성 자체)은 사용자 본인이 원하는 아이디/비밀번호로 직접 진행하기로 함 — 코드/문서 변경만 이번 작업 범위.

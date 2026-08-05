@@ -16,7 +16,7 @@ X(트위터)의 한국어 검색 문제를 해결하기 위해 개인 트윗/북
 ## 보안 필수 사항
 - 검색엔진은 인증 설정(마스터키/비밀번호) 없이는 실행되지 않도록 검증 코드 필수
 - OAuth 토큰은 반드시 암호화 저장, state 파라미터 검증 필수
-- 서버 모드는 Basic Auth 또는 앱 로그인 없이는 실행 차단
+- 서버 모드에서 공인 노출(도메인/Cloudflare Tunnel)일 경우 Basic Auth 또는 앱 로그인 없이는 실행 차단, Tailscale 등 사설 네트워크 전용 노출이면 선택(on/off 가능)
 - 검색엔진 포트는 기본적으로 127.0.0.1에만 바인딩, 외부 노출 금지
 - .env, DB 파일 등 민감 파일은 커밋/외부 노출 금지 (pre-commit 시크릿 스캔 포함)
 - 보안 점검 이력은 `claude/rules/backend.md` 참고
@@ -62,3 +62,9 @@ API/DB/검색엔진/폴링 관련 결정 히스토리는 `claude/rules/backend.m
 10. [x] Tailscale/Cloudflare Tunnel 외부 접속 구성 — compose profile(`tailscale`/`cloudflare-tunnel`)까지 구현, 실제 로그인/터널 연결 라이브 검증은 사용자 계정 필요로 보류 (상세는 `claude/rules/backend.md` 참고)
 11. [x] pre-commit 시크릿 스캔(gitleaks) 설정
 12. [x] 프론트엔드 구현 — 검색 화면 완료 (상세는 `claude/rules/frontend.md` 참고)
+
+배포 전 남은 작업 (TODO #10 후속, 사용자 실배포 진행 중 — 위험도순):
+13. [x] MEILI_MASTER_KEY 교체 — `openssl rand -base64 32`로 재발급, `backend/.env`에 반영 완료 (Meilisearch 컨테이너가 이미 떠 있다면 재시작 필요)
+14. [x] APP_USERNAME / APP_PASSWORD 노출 방식별 on/off 적용 — `DOMAIN`/`CLOUDFLARE_TUNNEL_TOKEN`(공인 노출) 설정 시에만 필수로 `validateEnv()`가 실행 차단, Tailscale 전용(둘 다 미설정)이면 선택 — `backend/src/config/env.ts`, `backend/src/app.ts` 수정 완료. 사용자가 직접 정한 계정값을 `backend/.env`에 반영 완료
+15. [ ] APP_MODE=local → server 전환 — 13, 14 완료 후 진행
+16. [ ] 서버 프로필 실배포 및 라이브 검증 — `docker compose --profile server-meilisearch --profile tailscale up -d --build`, `tailscale serve --bg https / http://backend:3000` 1회 실행, 접속 기기 Tailscale 로그인, 관리 콘솔에서 서버 노드 "Disable key expiry" 설정 (docs/07_사용가이드.md §4-5-1 참고)

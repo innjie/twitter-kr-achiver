@@ -74,12 +74,21 @@ export function validateEnv(): AppEnv {
     requireEnv("ELASTIC_PASSWORD");
   }
 
-  // #8 서버 모드 인증 — server 모드일 때만 필수
-  let appUsername: string | undefined;
-  let appPassword: string | undefined;
+  // #8 서버 모드 인증 — 공인 노출(도메인/Cloudflare Tunnel)이면 필수, Tailscale 등
+  // 사설 네트워크 전용 노출이면 선택(사용자가 직접 켜고 끌 수 있음)
+  let appUsername = process.env.APP_USERNAME || undefined;
+  let appPassword = process.env.APP_PASSWORD || undefined;
   if (appMode === "server") {
-    appUsername = requireEnv("APP_USERNAME");
-    appPassword = requireEnv("APP_PASSWORD");
+    const isPubliclyExposed = Boolean(process.env.DOMAIN || process.env.CLOUDFLARE_TUNNEL_TOKEN);
+    if (isPubliclyExposed) {
+      appUsername = requireEnv("APP_USERNAME");
+      appPassword = requireEnv("APP_PASSWORD");
+    } else if (Boolean(appUsername) !== Boolean(appPassword)) {
+      throw new Error(
+        "[env] APP_USERNAME/APP_PASSWORD는 둘 다 설정하거나 둘 다 비워두세요 " +
+          "(Tailscale 등 사설 네트워크 전용 노출 시에는 선택 사항입니다).",
+      );
+    }
   }
 
   return {
