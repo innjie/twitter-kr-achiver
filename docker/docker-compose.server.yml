@@ -1,22 +1,39 @@
-# 서버(홈서버/VPS) 배포용 오버레이. 로컬 전용 docker-compose.yml 위에 겹쳐서 사용한다:
+# 서버(홈서버/VPS) 배포용 오버레이. 로컬 전용 docker-compose.yml 위에 겹쳐서 사용한다.
+# 검색엔진 profile(server-meilisearch/server-elasticsearch)은 항상 필요하고,
+# 외부 노출 방식 profile(https/tailscale/cloudflare-tunnel)은 필요한 것만 조합해서 켠다:
 #
+#   # 공인 도메인 + Caddy 자동 HTTPS
 #   docker compose -f docker-compose.yml -f docker-compose.server.yml \
-#     --profile server-meilisearch --env-file ../backend/.env up -d
-#   (Elasticsearch를 쓴다면 --profile server-elasticsearch로 교체, 최초 실행 시 --build 추가)
+#     --profile server-meilisearch --profile https --env-file ../backend/.env up -d
+#
+#   # Tailscale (사설망 전용, 공인 포트 노출 없음 — docs/07 §4-5-1 계정/로그인 가이드 참고)
+#   docker compose -f docker-compose.yml -f docker-compose.server.yml \
+#     --profile server-meilisearch --profile tailscale --env-file ../backend/.env up -d
+#
+#   # Cloudflare Tunnel (인바운드 포트 노출 없음 — docs/07 §4-5-2 계정/토큰 발급 가이드 참고)
+#   docker compose -f docker-compose.yml -f docker-compose.server.yml \
+#     --profile server-meilisearch --profile cloudflare-tunnel --env-file ../backend/.env up -d
+#
+#   (Elasticsearch를 쓴다면 server-meilisearch → server-elasticsearch로 교체, 최초 실행 시 --build 추가)
+#   (노출 방식 profile 없이 검색엔진 profile만 켜면 backend가 어디서도 접근 불가능한 상태로만 뜬다 —
+#    반드시 https/tailscale/cloudflare-tunnel 중 최소 하나와 함께 사용)
 #
 # 로컬 전용 profile(meilisearch/elasticsearch)과 서버용 profile(server-meilisearch/
 # server-elasticsearch)을 의도적으로 분리했다: `ports: []`로 베이스 파일의 포트 바인딩을
 # 지우는 override는 compose 버전에 따라 무시되는 경우가 있어(실제로 이 프로젝트 개발 환경의
 # docker compose v2.15.1에서 재현/확인함), 검색엔진을 별도 서비스(meilisearch-server/
 # elasticsearch-server)로 새로 정의해 애초에 ports를 선언하지 않는 방식으로 우회했다.
+# caddy도 검색엔진 profile에서 분리해 별도의 `https` profile로 두었다 — Tailscale/Cloudflare
+# Tunnel은 각자 자체적으로 암호화/HTTPS 종단을 하므로 Caddy(공인 Let's Encrypt 전용)가 필요 없다.
 #
-# [보안 필수] 이 프로필로 띄우면 backend/meilisearch/elasticsearch는 호스트에 포트를 전혀
-# 노출하지 않고 `internal` 네트워크로만 서로 통신한다. 외부에 여는 건 caddy의 80/443뿐이다.
-# 80/443을 실제 공인 인터넷에 노출하기 전 반드시 확인:
-#   1) .env의 DOMAIN이 이 서버를 실제로 가리키는 도메인인지 (Caddy가 그 값으로
-#      Let's Encrypt 인증서를 자동 발급한다 — Caddyfile 참고, 미설정 시 자체 서명 인증서로 동작)
-#   2) .env의 APP_USERNAME/APP_PASSWORD가 설정되어 있는지 (APP_MODE=server 시 앱이 강제)
-#   3) 검색엔진 포트(7700/9200)를 방화벽에서 별도로 열지 않았는지
+# [보안 필수] 이 오버레이는 backend/meilisearch/elasticsearch가 호스트에 포트를 전혀
+# 노출하지 않고 `internal` 네트워크로만 서로 통신하는 걸 전제로 한다. 노출 방식별 확인 사항:
+#   - https(Caddy): .env의 DOMAIN이 이 서버를 실제로 가리키는 도메인인지(Caddyfile 참고,
+#     미설정 시 자체 서명 인증서), APP_USERNAME/APP_PASSWORD 설정 여부(APP_MODE=server 시 강제)
+#   - tailscale: TS_AUTHKEY가 본인 tailnet의 값인지, 공유 설정을 잘못 켜지 않았는지
+#   - cloudflare-tunnel: CLOUDFLARE_TUNNEL_TOKEN이 본인 터널의 값인지, Public Hostname 라우팅을
+#     타인이 접근 가능한 상태로 잘못 공개하지 않았는지(가급적 APP_USERNAME/APP_PASSWORD도 함께 설정)
+#   - 공통: 검색엔진 포트(7700/9200)를 방화벽에서 별도로 열지 않았는지
 
 services:
   backend:
@@ -38,7 +55,7 @@ services:
 
   caddy:
     image: caddy:2
-    profiles: ["server-meilisearch", "server-elasticsearch"]
+    profiles: ["https"]
     depends_on:
       - backend
     environment:
@@ -50,6 +67,43 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
+    networks:
+      - internal
+    restart: unless-stopped
+
+  # 사설 VPN 메시 네트워크로만 접속(공인 포트 노출 없음). 최초 1회, 컨테이너가 뜬 뒤
+  # `docker compose ... exec tailscale tailscale serve --bg https / http://backend:3000`를
+  # 실행해야 한다 — tailscaled 상태(tailscale_state 볼륨)에 저장되므로 이후 재시작 시엔
+  # 다시 실행할 필요 없음. 계정 발급/로그인 절차는 docs/07_사용가이드.md §4-5-1 참고.
+  tailscale:
+    image: tailscale/tailscale:latest
+    hostname: ${TS_HOSTNAME:-twitter-kr-achiver}
+    profiles: ["tailscale"]
+    depends_on:
+      - backend
+    environment:
+      - TS_AUTHKEY=${TS_AUTHKEY:-}
+      - TS_STATE_DIR=/var/lib/tailscale
+    volumes:
+      - tailscale_state:/var/lib/tailscale
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    networks:
+      - internal
+    restart: unless-stopped
+
+  # 공인 URL 노출(인바운드 포트 없이 아웃바운드로만 Cloudflare 엣지에 연결). 라우팅(호스트네임 →
+  # 내부 서비스)은 Cloudflare Zero Trust 대시보드에서 직접 설정 — 이 컴포즈 파일엔 토큰만 필요.
+  # 계정 발급/터널 생성 절차는 docs/07_사용가이드.md §4-5-2 참고.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    profiles: ["cloudflare-tunnel"]
+    depends_on:
+      - backend
     networks:
       - internal
     restart: unless-stopped
@@ -86,3 +140,4 @@ volumes:
   backend_data:
   caddy_data:
   caddy_config:
+  tailscale_state:

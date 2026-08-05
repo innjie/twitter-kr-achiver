@@ -59,6 +59,6 @@ API/DB/검색엔진/폴링 관련 결정 히스토리는 `claude/rules/backend.m
 7. [x] 런타임 폴링 로직 — X API 크레딧 문제로 실데이터 폴링 자체는 라이브 검증 못함, 동기화 실패 시 프론트 경고 배너 추가함 (상세는 `claude/rules/backend.md`/`claude/rules/frontend.md` 참고)
 8. [x] Docker Compose 서버 프로필 — 리버스 프록시(Caddy) 뒤 내부 네트워크 분리, 검색엔진 외부 포트 미노출
 9. [x] 서버 모드 인증/HTTPS — Basic Auth는 이미 실제 라우트에 적용되어 있었음(확인 완료), Caddy 자동 HTTPS는 8번과 함께 구현 (문서상 원래 하나의 작업이었음, 상세는 `claude/rules/backend.md` 참고)
-10. [ ] Tailscale/Cloudflare Tunnel 외부 접속 구성
+10. [x] Tailscale/Cloudflare Tunnel 외부 접속 구성 — compose profile(`tailscale`/`cloudflare-tunnel`)까지 구현, 실제 로그인/터널 연결 라이브 검증은 사용자 계정 필요로 보류 (상세는 `claude/rules/backend.md` 참고)
 11. [x] pre-commit 시크릿 스캔(gitleaks) 설정
 12. [x] 프론트엔드 구현 — 검색 화면 완료 (상세는 `claude/rules/frontend.md` 참고)
