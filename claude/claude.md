@@ -66,5 +66,5 @@ API/DB/검색엔진/폴링 관련 결정 히스토리는 `claude/rules/backend.m
 배포 전 남은 작업 (TODO #10 후속, 사용자 실배포 진행 중 — 위험도순):
 13. [x] MEILI_MASTER_KEY 교체 — `openssl rand -base64 32`로 재발급, `backend/.env`에 반영 완료 (Meilisearch 컨테이너가 이미 떠 있다면 재시작 필요)
 14. [x] APP_USERNAME / APP_PASSWORD 노출 방식별 on/off 적용 — `DOMAIN`/`CLOUDFLARE_TUNNEL_TOKEN`(공인 노출) 설정 시에만 필수로 `validateEnv()`가 실행 차단, Tailscale 전용(둘 다 미설정)이면 선택 — `backend/src/config/env.ts`, `backend/src/app.ts` 수정 완료. 사용자가 직접 정한 계정값을 `backend/.env`에 반영 완료
-15. [ ] APP_MODE=local → server 전환 — 13, 14 완료 후 진행
+15. [x] APP_MODE=local → server 전환 — `backend/.env`에 반영 완료 (Tailscale 전용 노출, DOMAIN/CLOUDFLARE_TUNNEL_TOKEN 미설정)
 16. [ ] 서버 프로필 실배포 및 라이브 검증 — `docker compose --profile server-meilisearch --profile tailscale up -d --build`, `tailscale serve --bg https / http://backend:3000` 1회 실행, 접속 기기 Tailscale 로그인, 관리 콘솔에서 서버 노드 "Disable key expiry" 설정 (docs/07_사용가이드.md §4-5-1 참고)
