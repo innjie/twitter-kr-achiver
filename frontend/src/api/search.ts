@@ -22,12 +22,15 @@ export interface SearchResult {
   hasMore: boolean;
 }
 
+export type SearchSort = "recency" | "relevance";
+
 export interface SearchParams {
   q: string;
   relation?: PostRelation;
   lang?: string;
   limit?: number;
   offset?: number;
+  sort?: SearchSort;
 }
 
 export class SearchApiError extends Error {}
@@ -39,6 +42,7 @@ export async function searchPosts(params: SearchParams): Promise<SearchResult> {
   if (params.lang) query.set("lang", params.lang);
   if (params.limit !== undefined) query.set("limit", String(params.limit));
   if (params.offset !== undefined) query.set("offset", String(params.offset));
+  if (params.sort) query.set("sort", params.sort);
 
   const response = await fetch(`/api/search?${query.toString()}`);
 

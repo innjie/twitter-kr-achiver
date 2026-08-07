@@ -191,12 +191,15 @@ export class ElasticsearchAdapter implements SearchProvider {
     const limit = pagination?.limit ?? DEFAULT_SEARCH_LIMIT;
     const offset = pagination?.offset ?? DEFAULT_SEARCH_OFFSET;
     const fields = targetFieldsForFilters(filters);
+    // 기본은 최신순 고정 정렬. "relevance"일 때만 정렬을 생략해 ES 기본 _score 랭킹을 사용.
+    const sort = pagination?.sort === "relevance" ? undefined : [{ createdAt: "desc" as const }];
 
     const response = await this.esClient.search<EsPostDocument>({
       index: INDEX_NAME,
       from: offset,
       size: limit,
       query: buildEsQuery(query, filters, fields),
+      sort,
       highlight: {
         fields: Object.fromEntries(fields.map((field) => [field, {}])),
         pre_tags: [HIGHLIGHT_PRE_TAG],

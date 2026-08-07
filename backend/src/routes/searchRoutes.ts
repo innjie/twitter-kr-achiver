@@ -4,6 +4,7 @@ import type { SearchProvider } from "../search/SearchProvider";
 import { parseSearchQuery } from "../search/queryParser";
 
 const VALID_RELATIONS: PostRelation[] = ["tweet", "retweet", "like", "bookmark"];
+const VALID_SORTS = ["recency", "relevance"] as const;
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
 
@@ -68,9 +69,16 @@ export function createSearchRouter(search: SearchProvider): Router {
       return;
     }
 
+    const rawSort = firstString(req.query.sort);
+    if (rawSort !== undefined && !VALID_SORTS.includes(rawSort as (typeof VALID_SORTS)[number])) {
+      res.status(400).json({ error: `sort는 ${VALID_SORTS.join("/")} 중 하나여야 합니다` });
+      return;
+    }
+
     const pagination = {
       limit: Math.min(rawLimit ?? DEFAULT_LIMIT, MAX_LIMIT),
       offset: rawOffset ?? 0,
+      sort: (rawSort as (typeof VALID_SORTS)[number] | undefined) ?? "recency",
     };
 
     try {

@@ -145,11 +145,14 @@ export class MeilisearchAdapter implements SearchProvider {
   ): Promise<SearchResult> {
     const limit = pagination?.limit ?? DEFAULT_SEARCH_LIMIT;
     const offset = pagination?.offset ?? DEFAULT_SEARCH_OFFSET;
+    // 기본은 최신순 고정 정렬. "relevance"일 때만 Meilisearch 기본 관련도 랭킹을 그대로 사용.
+    const sort = pagination?.sort === "relevance" ? undefined : ["createdAt:desc"];
 
     const response = await this.index.search(query, {
       filter: buildFilterExpression(filters),
       limit,
       offset,
+      sort,
       attributesToHighlight: ["text"],
       highlightPreTag: HIGHLIGHT_PRE_TAG,
       highlightPostTag: HIGHLIGHT_POST_TAG,

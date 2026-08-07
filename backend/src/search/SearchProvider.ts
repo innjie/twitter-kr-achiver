@@ -20,6 +20,8 @@ export interface SearchFilters {
 export interface SearchPagination {
   limit?: number;
   offset?: number;
+  /** 정렬 기준. 기본값 "recency"(최신순) — 생략 시에도 최신순으로 동작 */
+  sort?: "recency" | "relevance";
 }
 
 /** 검색 결과 카드 하나 (Post + 검색어 하이라이트가 반영된 본문) */
