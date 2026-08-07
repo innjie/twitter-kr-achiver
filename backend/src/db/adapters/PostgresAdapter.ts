@@ -6,7 +6,7 @@ const INSERT_POST_SQL = `
   INSERT INTO posts
     (id, author_username, text, lang, relation, created_at, saved_at, url, retweet_of_id, is_reply, source)
   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-  ON CONFLICT (id) DO NOTHING
+  ON CONFLICT (id, relation) DO NOTHING
 `;
 
 function postParams(post: Post): unknown[] {
@@ -149,7 +149,7 @@ export class PostgresAdapter implements DbAdapter {
 
   async getPostsPage(offset: number, limit: number): Promise<Post[]> {
     const result = await this.connection.query<PostRow>(
-      "SELECT * FROM posts ORDER BY id LIMIT $1 OFFSET $2",
+      "SELECT * FROM posts ORDER BY id, relation LIMIT $1 OFFSET $2",
       [limit, offset],
     );
     return result.rows.map(rowToPost);

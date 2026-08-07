@@ -167,7 +167,7 @@ export class SqliteAdapter implements DbAdapter {
 
   async getPostsPage(offset: number, limit: number): Promise<Post[]> {
     const rows = this.connection
-      .prepare("SELECT * FROM posts ORDER BY id LIMIT @limit OFFSET @offset")
+      .prepare("SELECT * FROM posts ORDER BY id, relation LIMIT @limit OFFSET @offset")
       .all({ "@limit": limit, "@offset": offset }) as unknown as PostRow[];
     return rows.map(rowToPost);
   }

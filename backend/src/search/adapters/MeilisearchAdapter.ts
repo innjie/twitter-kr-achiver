@@ -13,6 +13,8 @@ const HIGHLIGHT_POST_TAG = "</mark>";
 
 /** Meilisearch에 저장하는 문서 형태. Date는 필터/정렬을 위해 unix seconds(숫자)로 변환해 저장한다. */
 interface MeiliPostDocument {
+  /** 인덱스 primaryKey. 같은 트윗 id가 tweet/retweet/like/bookmark로 동시에 존재할 수 있어(예: 본인 트윗을 본인이 좋아요) `relation:id` 합성값을 사용 */
+  docId: string;
   id: string;
   authorUsername: string;
   text: string;
@@ -28,6 +30,7 @@ interface MeiliPostDocument {
 
 function toMeiliDocument(post: Post): MeiliPostDocument {
   return {
+    docId: `${post.relation}_${post.id}`,
     id: post.id,
     authorUsername: post.authorUsername,
     text: post.text,
@@ -117,7 +120,7 @@ export class MeilisearchAdapter implements SearchProvider {
       .catch(() => false);
 
     if (!exists) {
-      const createTask = await this.client.createIndex(INDEX_UID, { primaryKey: "id" });
+      const createTask = await this.client.createIndex(INDEX_UID, { primaryKey: "docId" });
       await this.client.tasks.waitForTask(createTask.taskUid);
     }
 

@@ -16,7 +16,8 @@ export function Feed({ hits, hasMore, loading, onLoadMore }: FeedProps) {
   return (
     <div className="flex flex-col gap-3">
       {hits.map((hit) => (
-        <PostCard key={hit.id} hit={hit} />
+        // 같은 트윗이 tweet/retweet/like/bookmark로 동시에 나올 수 있어 id 단독으로는 키가 겹칠 수 있음
+        <PostCard key={`${hit.relation}-${hit.id}`} hit={hit} />
       ))}
 
       {hasMore && (

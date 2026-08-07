@@ -164,14 +164,19 @@ export class ElasticsearchAdapter implements SearchProvider {
   }
 
   async indexDocument(post: Post): Promise<void> {
-    await this.esClient.index({ index: INDEX_NAME, id: post.id, document: toEsDocument(post) });
+    // 같은 트윗 id가 tweet/retweet/like/bookmark로 동시에 존재할 수 있어(예: 본인 트윗을 본인이 좋아요)
+    // _id를 `relation:id` 합성값으로 사용 (post.id 자체는 문서 필드로 그대로 보존)
+    await this.esClient.index({ index: INDEX_NAME, id: `${post.relation}:${post.id}`, document: toEsDocument(post) });
   }
 
   async bulkIndexDocuments(posts: Post[]): Promise<void> {
     if (posts.length === 0) return;
     await this.esClient.helpers.bulk({
       datasource: posts,
-      onDocument: (post) => [{ index: { _index: INDEX_NAME, _id: post.id } }, toEsDocument(post)],
+      onDocument: (post) => [
+        { index: { _index: INDEX_NAME, _id: `${post.relation}:${post.id}` } },
+        toEsDocument(post),
+      ],
       onDrop: (doc) => {
         throw new Error(`ElasticsearchAdapter bulk index 실패: ${JSON.stringify(doc)}`);
       },
