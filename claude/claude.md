@@ -68,3 +68,4 @@ API/DB/검색엔진/폴링 관련 결정 히스토리는 `claude/rules/backend.m
 14. [x] APP_USERNAME / APP_PASSWORD 노출 방식별 on/off 적용 — `DOMAIN`/`CLOUDFLARE_TUNNEL_TOKEN`(공인 노출) 설정 시에만 필수로 `validateEnv()`가 실행 차단, Tailscale 전용(둘 다 미설정)이면 선택 — `backend/src/config/env.ts`, `backend/src/app.ts` 수정 완료. 사용자가 직접 정한 계정값을 `backend/.env`에 반영 완료
 15. [x] APP_MODE=local → server 전환 — `backend/.env`에 반영 완료 (Tailscale 전용 노출, DOMAIN/CLOUDFLARE_TUNNEL_TOKEN 미설정)
 16. [x] 서버 프로필 실배포 및 라이브 검증 — Docker 이미지 빌드/기동, `tailscale serve --bg http://backend:3000` 실행(최초 1회 tailnet에서 Serve 기능 승인 필요했음 — CLI 문법이 `https / <url>`에서 `<url>`로 변경된 점 포함 docs 반영 완료), `https://twitter-kr-achiver.<tailnet>.ts.net/`로 접속 확인, 사용자가 접속 기기 Tailscale 로그인 및 관리 콘솔에서 "Disable key expiry" 설정 완료
+17. [x] 실계정 아카이브 임포트 검증 + posts 기본키 충돌 버그 수정 + 검색 정렬 기능 추가 — 상세는 `claude/rules/backend.md`/`claude/rules/frontend.md` 참고. GitHub Issue로도 버그 별도 기록.

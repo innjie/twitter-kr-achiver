@@ -45,3 +45,9 @@
 - `PollingWarningBanner.tsx`(앰버 톤, 아이콘+메시지+닫기 버튼, 세션 내에서만 닫기 가능 — 새로고침하면 다시 상태 조회해서 여전히 문제면 다시 뜸) + `App.tsx`가 로드 시 1회 `getPollingStatus()` 조회, 에러 있을 때만 렌더링.
 - 위치는 검색바 위, 검색바는 그대로 sticky 유지하고 배너는 스크롤 시 함께 흘러가도록 배치(sticky로 겹치면 화면을 너무 많이 차지해서).
 - 검증: 실계정의 실제 402 상태를 그대로 이용해 "경고" 상태를 라이브로, Playwright `page.route`로 `/api/polling/status`를 가로채 "정상"(배너 미노출) 상태를 각각 스크린샷/콘솔에러 없음까지 확인 → 두 상태 모두 사전에 승인받은 목업과 일치. 테스트 산출물(Meilisearch 바이너리, Playwright, 스크린샷) 전부 정리.
+
+### 검색 정렬 토글 (TODO #17 후속, 프론트 부분)
+백엔드 쪽 `sort` 파라미터/어댑터 구현은 `claude/rules/backend.md`의 TODO #17 참고. 결정 히스토리:
+- `SortToggle.tsx` — "최신순"/"관련도순" 두 버튼, `LangFilter`와 동일한 톤(테두리 박스+선택 시 채움) 유지. `App.tsx`의 `sort` 상태(기본 `recency`)를 relation/lang과 동일하게 변경 시 자동 재조회 대상에 포함.
+- **"토글이 반응 없다"는 버그 리포트 조사**: Playwright로 실제 클릭을 재현해보니 프론트는 정상적으로 `sort=relevance`/`sort=recency` 요청을 나눠 보내고 있었음(콘솔 에러도 없음) — 검색어 없이 "좋아요" 탭만 보고 있을 때 우연히 결과 순서가 같아 보였을 뿐, 프론트 코드 버그는 아니었음(근본 원인은 `claude/rules/backend.md` TODO #17 참고).
+- `Feed.tsx`의 React `key`를 `hit.id` 단독 → `` `${hit.relation}-${hit.id}` ``로 수정 — posts 기본키를 `(id, relation)` 복합키로 바꾼 백엔드 변경(TODO #17)에 따라, 같은 트윗이 "전체" 뷰에서 여러 relation 카드로 동시에 나올 수 있게 되어 `id` 단독 키로는 충돌 가능.
