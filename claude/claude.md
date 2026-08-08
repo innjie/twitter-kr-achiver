@@ -39,6 +39,13 @@ API/DB/검색엔진/폴링 관련 결정 히스토리는 `claude/rules/backend.m
 ## 코드 스타일
 공통 코드 규칙(secure-coding, 네이밍, 모듈화 등)은 `claude/rules/code-style.md` 참고.
 
+## 로컬 개발 서버 빠른 재기동 (Windows, Docker 미설치 환경)
+"백엔드 다시켜줘" 등 재기동 요청 시 아래 순서로 바로 실행 (매번 바이너리 위치를 새로 찾지 말 것 — 상세는 docs/07_사용가이드.md §3-1-1 참고):
+1. Meilisearch: `.local/meilisearch.exe --db-path ./.local/meili_data --http-addr 127.0.0.1:7700 --master-key <backend/.env의 MEILI_MASTER_KEY>` 를 프로젝트 루트에서 백그라운드 실행 (`.local/`은 git-ignore된 영구 로컬 경로 — 세션별 임시 scratchpad에 두지 말 것)
+2. 백엔드: `backend/`에서 `npx tsx src/server.ts` 백그라운드 실행
+3. 프론트엔드(필요 시): `frontend/`에서 `npm run dev` 백그라운드 실행
+4. 확인: 포트 7700/3000/5173 리스닝 여부(`Get-NetTCPConnection -LocalPort <포트>`)로 검증, curl로 실제 응답까지 확인
+
 ## 참고 문서
 - docs/06_개발가이드.md (아키텍처, 다국어 설계, 보안 요구사항 전체)
 - docs/07_사용가이드.md (설치/설정, 보안 체크리스트)

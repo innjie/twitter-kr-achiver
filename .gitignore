@@ -7,5 +7,8 @@ node_modules/
 dist/
 data/
 
+# 로컬 개발용 Meilisearch 바이너리/데이터 (docs/07_사용가이드.md §3-1 참고)
+.local/
+
 # Claude Code 로컬 전용 설정 (머신별 권한 등, 공유 불필요)
 .claude/settings.local.json
