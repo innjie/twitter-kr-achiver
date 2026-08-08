@@ -22,11 +22,12 @@ async function importEntries(
   db: DbAdapter,
   search: SearchProvider,
   files: unzipper.File[],
-  mapEntry: (raw: unknown) => Post | null,
+  mapEntry: (raw: unknown, index: number) => Post | null,
 ): Promise<{ imported: number; skipped: number; maxId: bigint }> {
   let imported = 0;
   let skipped = 0;
   let maxId = 0n;
+  let index = 0;
   let batch: Post[] = [];
 
   const flush = async () => {
@@ -38,7 +39,8 @@ async function importEntries(
 
   for (const file of files) {
     for await (const raw of streamArchiveJsonArray(file.stream())) {
-      const post = mapEntry(raw);
+      const post = mapEntry(raw, index);
+      index++;
       if (!post) {
         skipped++;
         continue;
@@ -94,8 +96,8 @@ export async function importArchive(
     await db.setLastSyncedId("tweets", tweetResult.maxId.toString());
   }
 
-  const likeResult = await importEntries(db, search, likeFiles, (raw) =>
-    mapLikeEntry(raw, savedAt),
+  const likeResult = await importEntries(db, search, likeFiles, (raw, index) =>
+    mapLikeEntry(raw, savedAt, index),
   );
   if (likeResult.maxId > 0n) {
     await db.setLastSyncedId("likes", likeResult.maxId.toString());

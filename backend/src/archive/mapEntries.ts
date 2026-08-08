@@ -82,16 +82,20 @@ export function mapTweetEntry(raw: unknown, ownUsername: string, savedAt: Date):
 /**
  * like.js 원소 하나를 Post로 매핑한다.
  * 주의: X 아카이브의 like.js에는 좋아요를 누른 시각이 포함되지 않는다.
- * 정확한 created_at을 알 수 없으므로 임포트 시각(savedAt)으로 대체한다 (알려진 제약사항).
+ * 정확한 좋아요 시각은 알 수 없지만, like.js 배열 순서가 대체로 최신→과거 흐름을 따르는 것으로
+ * 실제 데이터에서 확인됨(claude/rules/backend.md TODO #17 참고) — 배열 인덱스를 이용해
+ * "실제 날짜는 아니지만 상대적 최신순 정렬은 가능한" 합성 createdAt을 만든다.
+ * @param orderIndex like.js 배열에서의 순서(0 = 가장 최근으로 간주). savedAt에서 1초씩 차감해 정렬용 유일값 생성
  * @returns 필수 필드가 없으면 null (스킵)
  */
-export function mapLikeEntry(raw: unknown, savedAt: Date): Post | null {
+export function mapLikeEntry(raw: unknown, savedAt: Date, orderIndex: number): Post | null {
   const entry = raw as RawLikeEntry;
   const like = entry?.like;
   if (!like?.tweetId) return null;
 
   const authorMatch = like.expandedUrl?.match(STATUS_URL_AUTHOR);
   const url = like.expandedUrl ?? `https://x.com/i/web/status/${like.tweetId}`;
+  const createdAt = new Date(savedAt.getTime() - orderIndex * 1000);
 
   return {
     id: like.tweetId,
@@ -99,7 +103,7 @@ export function mapLikeEntry(raw: unknown, savedAt: Date): Post | null {
     text: like.fullText ?? "",
     lang: "",
     relation: "like",
-    createdAt: savedAt,
+    createdAt,
     savedAt,
     url,
     retweetOfId: null,
