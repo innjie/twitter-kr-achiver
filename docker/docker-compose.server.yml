@@ -38,7 +38,8 @@
 services:
   backend:
     build:
-      context: ../backend
+      context: ..
+      dockerfile: backend/Dockerfile
     profiles: ["server-meilisearch", "server-elasticsearch"]
     env_file:
       - ../backend/.env

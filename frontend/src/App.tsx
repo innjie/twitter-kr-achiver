@@ -7,6 +7,7 @@ import { LangFilter } from "./components/LangFilter";
 import { SortToggle } from "./components/SortToggle";
 import { Feed } from "./components/Feed";
 import { PollingWarningBanner } from "./components/PollingWarningBanner";
+import { ImportPanel } from "./components/ImportPanel";
 
 const LIMIT = 20;
 
@@ -29,6 +30,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pollingWarning, setPollingWarning] = useState<string | null>(null);
+  const [view, setView] = useState<"search" | "import">("search");
 
   async function runSearch(params: RunSearchParams) {
     setLoading(true);
@@ -76,21 +78,37 @@ function App() {
     <main className="mx-auto flex max-w-2xl flex-col gap-4 p-4">
       {pollingWarning && <PollingWarningBanner message={pollingWarning} />}
 
-      <div className="sticky top-0 z-10 bg-white py-2">
-        <SearchBar onSearch={handleSearch} />
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => setView(view === "search" ? "import" : "search")}
+          className="text-sm text-neutral-500 underline hover:text-neutral-800"
+        >
+          {view === "search" ? "아카이브 가져오기" : "검색으로 돌아가기"}
+        </button>
       </div>
 
-      <div className="flex items-center justify-between gap-2">
-        <RelationTabs value={relation} onChange={setRelation} />
-        <div className="flex items-center gap-2">
-          <SortToggle value={sort} onChange={setSort} />
-          <LangFilter value={lang} onChange={setLang} />
-        </div>
-      </div>
+      {view === "import" ? (
+        <ImportPanel />
+      ) : (
+        <>
+          <div className="sticky top-0 z-10 bg-white py-2">
+            <SearchBar onSearch={handleSearch} />
+          </div>
 
-      {error && <p className="text-red-600">{error}</p>}
+          <div className="flex items-center justify-between gap-2">
+            <RelationTabs value={relation} onChange={setRelation} />
+            <div className="flex items-center gap-2">
+              <SortToggle value={sort} onChange={setSort} />
+              <LangFilter value={lang} onChange={setLang} />
+            </div>
+          </div>
 
-      <Feed hits={hits} hasMore={hasMore} loading={loading} onLoadMore={handleLoadMore} />
+          {error && <p className="text-red-600">{error}</p>}
+
+          <Feed hits={hits} hasMore={hasMore} loading={loading} onLoadMore={handleLoadMore} />
+        </>
+      )}
     </main>
   );
 }

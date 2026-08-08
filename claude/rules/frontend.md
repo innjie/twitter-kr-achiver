@@ -25,8 +25,8 @@
 - X 로고/브랜드명/브랜드 컬러 그대로 사용 금지 — 독자 이름/색상/로고 사용
 - 카드형 피드, 페이지네이션 등 UX 패턴은 자유롭게 참고 가능 (상표 보호 대상 아님)
 
-### 미결정 사항
-- `import.html` 흡수 여부는 검색 화면 완성 후 재검토
+### 미결정 사항 (해소됨)
+- `import.html` 흡수 여부는 검색 화면 완성 후 재검토하기로 했었음 → TODO #18에서 흡수 완료, 아래 참고.
 
 ## TODO 이력
 
@@ -51,3 +51,11 @@
 - `SortToggle.tsx` — "최신순"/"관련도순" 두 버튼, `LangFilter`와 동일한 톤(테두리 박스+선택 시 채움) 유지. `App.tsx`의 `sort` 상태(기본 `recency`)를 relation/lang과 동일하게 변경 시 자동 재조회 대상에 포함.
 - **"토글이 반응 없다"는 버그 리포트 조사**: Playwright로 실제 클릭을 재현해보니 프론트는 정상적으로 `sort=relevance`/`sort=recency` 요청을 나눠 보내고 있었음(콘솔 에러도 없음) — 검색어 없이 "좋아요" 탭만 보고 있을 때 우연히 결과 순서가 같아 보였을 뿐, 프론트 코드 버그는 아니었음(근본 원인은 `claude/rules/backend.md` TODO #17 참고).
 - `Feed.tsx`의 React `key`를 `hit.id` 단독 → `` `${hit.relation}-${hit.id}` ``로 수정 — posts 기본키를 `(id, relation)` 복합키로 바꾼 백엔드 변경(TODO #17)에 따라, 같은 트윗이 "전체" 뷰에서 여러 relation 카드로 동시에 나올 수 있게 되어 `id` 단독 키로는 충돌 가능.
+
+### `import.html` React 흡수 (TODO #18)
+"3번(import.html 흡수)은 왜 하는 거냐"는 사용자 질문에 "안 해도 문제되는 건 아니고 UI 일관성만 좋아지는 선택적 개선"이라고 답했고, 이후 "진행"으로 승인받아 진행. 결정 히스토리:
+- 착수 전 `backend/Dockerfile`을 확인하다가 **프로덕션 Docker 이미지가 애초에 React 프론트엔드를 전혀 빌드/서빙하지 않고 있었다는 사실을 발견**(별도 이슈, 상세는 `claude/rules/backend.md` TODO #18 참고) — import.html 흡수만 해봐야 실배포에서는 어차피 안 보이는 상태였으므로, 흡수 작업 전에 이 문제부터 짚어 사용자에게 확인받음. 사용자가 "둘 다 진행"을 선택.
+- 라우팅 라이브러리 없이(1차 범위 결정 그대로 유지) `App.tsx`에 `view: "search" | "import"` state만 추가 — 상단 우측에 텍스트 링크 버튼(`아카이브 가져오기` / `검색으로 돌아가기`)으로 전환. URL 경로 분리(`/import`)는 하지 않음 — 앱이 단일 화면이라 굳이 필요 없다고 판단.
+- `api/importArchive.ts` — 기존 `import.html`의 XHR 업로드 로직(진행률 이벤트 필요해 fetch 대신 XMLHttpRequest 유지) 그대로 이식. `components/ImportPanel.tsx` — 기존 폼 필드(아이디 패턴 검증, 파일 선택, 진행률 바, 성공/실패 상태 메시지)를 기존 컴포넌트들과 동일한 Tailwind neutral 톤으로 재구현.
+- 흡수 후 `backend/public/import.html` 삭제.
+- **검증**: Playwright로 실제 브라우저에서 (1) 검색→임포트 화면 전환, (2) 잘못된 아이디 형식 입력 시 HTML5 `pattern` 네이티브 검증으로 제출 자체가 막히는지, (3) 실제 합성 zip(가짜 트윗 1건, 마커 텍스트 포함)을 업로드해 `/api/import/archive` 왕복이 실제로 동작하는지, (4) 임포트 완료 후 검색 화면 복귀까지 스크린샷+콘솔 에러 없음으로 확인. 검증에 쓴 가짜 트윗은 이후 DB(`DELETE`)와 Meilisearch(문서 삭제 API)에서 직접 제거해 실 데이터 카운트(230,654건)를 원상복구.

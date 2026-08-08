@@ -155,3 +155,11 @@
   - 반영 후 `POST /api/admin/reindex`로 Meilisearch 재색인(230,654건), `sort=recency&relation=like` curl 결과 1위가 `like.js` 배열의 첫 entry(`tweetId=2084804247791771672`)와 일치함을 확인.
 - **검증**: 실계정 데이터(총 230,654건: tweet 112,066 / retweet 114,771 / like 3,817)로 재임포트 → DB/Meilisearch 문서 수 정확히 일치 확인, `like`+`tweet` 두 relation으로 동시 저장된 실제 사례 조회로 기본키 수정 확인. `sort` 파라미터는 curl로 recency/relevance 응답이 실제로 다름을, 잘못된 값(`sort=bogus`)이 400을 반환함을 확인. 프론트는 Playwright로 정렬 토글 클릭 시 실제 API 요청이 바뀌는지, 콘솔 에러 없는지 확인. 테스트 산출물(zip, 스테이징 폴더, Playwright, 스크린샷) 전부 정리, 실 데이터가 담긴 `backend/data/archive.db`는 보존.
 - 커밋은 기본키 수정([update])과 정렬 기능([add])을 의미 단위로 분리 — 같은 파일(`MeilisearchAdapter.ts`/`ElasticsearchAdapter.ts`) 안에 두 변경이 섞여 있어 `git add -p` 대신 정렬 관련 코드를 임시로 되돌렸다 커밋 후 재적용하는 방식으로 분리.
+
+### 프로덕션 프론트엔드 서빙 누락 발견 + import.html 흡수 (TODO #18)
+"import.html을 React로 흡수하자"(claude/rules/frontend.md TODO #18)는 사용자 요청을 착수하기 전, `backend/Dockerfile`을 확인하다가 더 근본적인 문제를 발견. 결정 히스토리:
+- **발견**: `backend/Dockerfile`이 `COPY public ./public`으로 `backend/public`(당시 `import.html`만 존재)만 이미지에 넣고, `frontend/`를 빌드해서 넣는 스테이지 자체가 없었음. `docker-compose.server.yml`에도 별도 frontend 서비스가 없고 Caddy는 전부 `backend:3000`으로만 프록시 — 즉 **TODO #16에서 실배포·"접속 확인"했던 프로덕션 서버는 애초에 React 검색 화면을 전혀 서빙하지 않는 상태였음**(`/import.html`, `/api/*`, `/health`만 존재). 이 사실을 사용자에게 먼저 보고하고 "흡수 작업 + 프로덕션 서빙 수정 둘 다 진행"으로 승인받음.
+- **수정**: `backend/Dockerfile`에 `frontend-build` 스테이지 추가(`frontend/`를 `npm ci && npm run build`) → 런타임 스테이지에서 `COPY --from=frontend-build /app/frontend/dist ./public`으로 교체(기존 `COPY public ./public` 대체, `import.html`은 React로 흡수되며 삭제됨). `app.ts`의 기존 `express.static(.../public)` 코드는 변경 불필요(빌드 산출물을 그 경로에 두기만 하면 됨).
+- **빌드 컨텍스트 변경**: Dockerfile이 `frontend/` 소스도 필요해져 `backend/` 단독 컨텍스트로는 더 이상 불가능 — `docker-compose.server.yml`의 `backend.build.context`를 `../backend` → `..`(저장소 루트)로, `dockerfile: backend/Dockerfile` 명시 추가. `.dockerignore`도 `backend/.dockerignore` → 저장소 루트 `.dockerignore`로 이동(node_modules/dist/데이터파일/`.env`/`.git`/`.local` 제외).
+- **로컬 개발 영향 없음**: 로컬은 여전히 Vite dev server(5173)가 프론트를 서빙하고 `/api`만 백엔드로 프록시하는 기존 구조 그대로 — 이 변경은 Docker 프로덕션 빌드 경로에만 영향.
+- **검증**: 이 환경엔 Docker가 없어(WSL2 관리자 권한 필요, `claude/rules/backend.md` TODO #17에서와 동일한 제약) Dockerfile/컴포즈 문법을 직접 빌드해 검증하지는 못함 — **알려진 미검증 사항으로 남김**. 대신 로컬에서 프론트 소스 수정 자체(App.tsx/ImportPanel.tsx)는 Playwright로 실제 브라우저 검증 완료(상세는 `claude/rules/frontend.md` TODO #18 참고).
