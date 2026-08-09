@@ -13,7 +13,7 @@ function timingSafeEqual(a: string, b: string): boolean {
 
 /**
  * 서버 모드(APP_MODE=server)에서 강제되는 Basic Auth 미들웨어 (docs/06_개발가이드.md §9 #8).
- * 터널(Tailscale/Cloudflare Tunnel) 등으로 외부 노출 시 최소한의 인증 계층을 제공한다.
+ * 터널(Cloudflare Tunnel) 등으로 외부 노출 시 최소한의 인증 계층을 제공한다.
  */
 export function basicAuth(username: string, password: string) {
   return (req: Request, res: Response, next: NextFunction) => {

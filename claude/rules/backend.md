@@ -163,3 +163,12 @@
 - **빌드 컨텍스트 변경**: Dockerfile이 `frontend/` 소스도 필요해져 `backend/` 단독 컨텍스트로는 더 이상 불가능 — `docker-compose.server.yml`의 `backend.build.context`를 `../backend` → `..`(저장소 루트)로, `dockerfile: backend/Dockerfile` 명시 추가. `.dockerignore`도 `backend/.dockerignore` → 저장소 루트 `.dockerignore`로 이동(node_modules/dist/데이터파일/`.env`/`.git`/`.local` 제외).
 - **로컬 개발 영향 없음**: 로컬은 여전히 Vite dev server(5173)가 프론트를 서빙하고 `/api`만 백엔드로 프록시하는 기존 구조 그대로 — 이 변경은 Docker 프로덕션 빌드 경로에만 영향.
 - **검증**: 이 환경엔 Docker가 없어(WSL2 관리자 권한 필요, `claude/rules/backend.md` TODO #17에서와 동일한 제약) Dockerfile/컴포즈 문법을 직접 빌드해 검증하지는 못함 — **알려진 미검증 사항으로 남김**. 대신 로컬에서 프론트 소스 수정 자체(App.tsx/ImportPanel.tsx)는 Playwright로 실제 브라우저 검증 완료(상세는 `claude/rules/frontend.md` TODO #18 참고).
+
+### Tailscale 지원 제거 (TODO #19)
+TODO #16 배포 이후, 홈 PC를 상시 켜둘 수 없어 tailnet 노드가 offline 상태가 된 걸 계기로 "상시 접속 가능한 외부 호스팅"이 필요하다는 논의로 이어짐. 결정 히스토리:
+- **후보 검토**: 집 PC(상시 구동 불가) → AWS EC2(월 $6~10 기본 비용, 신규 계정은 2025-07-15 이후 12개월 무료 티어 폐지·$200 크레딧으로 대체되어 결국 유료) → **Oracle Cloud "Always Free" 티어**(ARM A1.Flex, 기간 제한 없이 영구 무료)로 최종 결정. 순수 웹 검색으로 AWS 무료 티어 정책 변경 시점(2025-07-15)을 확인한 뒤 사용자에게 안내.
+- **외부 노출 방식 재검토**: "공격으로 인한 과금 폭탄 방지"가 사용자의 핵심 요구사항이었음. Tailscale(사설망 전용)은 애초에 이 문제와 무관(공인 노출 자체가 없어 과금 유발 공격 표면이 없음)하지만, "브라우저로 어디서든 바로 접속"이라는 편의성 요구와 배치됨 — Tailscale 앱 설치 없이 접속하려면 공인 노출이 필요하고, 이 경우 DuckDNS(무료)+Caddy(공인 IP 직접 노출, egress 과금 리스크 있음) vs 저가 도메인+Cloudflare Tunnel(인바운드 포트 미노출, Cloudflare 엣지에서 DDoS 방어, 도메인 비용만 발생) 중 후자로 결정.
+- **Tailscale 완전 제거 이유**: Cloudflare Tunnel 하나로 "상시 접속 + 방어" 요구사항이 모두 충족되는 상황에서, 서로 다른 두 외부 노출 방식(Tailscale/Cloudflare Tunnel)을 동시에 코드/문서에서 유지보수하는 비용이 실익 대비 크다고 판단 — 사용자가 명시적으로 "코드/문서에서 Tailscale 지원 자체를 완전히 제거"를 선택.
+- **제거 범위**: `docker-compose.server.yml`의 `tailscale` 서비스 정의 + `tailscale_state` 볼륨 + 헤더 주석의 노출 방식 목록, `.env.example`의 `TS_AUTHKEY`/`TS_HOSTNAME`, `docker/Caddyfile`·`backend/src/app.ts`·`backend/src/config/env.ts`·`backend/src/middleware/basicAuth.ts`의 Tailscale 언급(일반화된 "사설 네트워크"/"VPN" 표현으로 대체 — Basic Auth를 사설망 전용 노출 시 선택 사항으로 두는 로직 자체는 Tailscale에 종속된 게 아니라 유지), `docs/06_개발가이드.md`/`docs/07_사용가이드.md`의 관련 절·비교표·`.env` 예시(§4-5-1 Tailscale 절 삭제, 옛 §4-5-2 Cloudflare Tunnel을 §4-5-1로 승격).
+- **역사 기록 보존**: 각 문서의 변경 이력(changelog)에 있던 과거 Tailscale 관련 항목(예: docs/07 v1.9/v1.10, claude.md TODO #10/#14~#16)은 "그 시점엔 실제로 그렇게 했다"는 사실 기록이라 삭제하지 않고 그대로 둠 — 대신 각 문서에 새 changelog 항목을 추가해 제거 사실과 사유를 남기는 방식으로 처리(docs/06 v1.6, docs/07 v1.13, claude.md TODO #19).
+- 이 작업은 코드/문서 정리만 진행한 것이며, Oracle Cloud 인스턴스 생성이나 Cloudflare Tunnel 실제 연결 등 실배포 자체는 사용자가 직접 진행 예정 (라이브 검증 없음, 가이드만 제공).

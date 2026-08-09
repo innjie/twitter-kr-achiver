@@ -16,7 +16,7 @@ X(트위터)의 한국어 검색 문제를 해결하기 위해 개인 트윗/북
 ## 보안 필수 사항
 - 검색엔진은 인증 설정(마스터키/비밀번호) 없이는 실행되지 않도록 검증 코드 필수
 - OAuth 토큰은 반드시 암호화 저장, state 파라미터 검증 필수
-- 서버 모드에서 공인 노출(도메인/Cloudflare Tunnel)일 경우 Basic Auth 또는 앱 로그인 없이는 실행 차단, Tailscale 등 사설 네트워크 전용 노출이면 선택(on/off 가능)
+- 서버 모드에서 공인 노출(도메인/Cloudflare Tunnel)일 경우 Basic Auth 또는 앱 로그인 없이는 실행 차단, 사설 네트워크 전용 노출이면 선택(on/off 가능)
 - 검색엔진 포트는 기본적으로 127.0.0.1에만 바인딩, 외부 노출 금지
 - .env, DB 파일 등 민감 파일은 커밋/외부 노출 금지 (pre-commit 시크릿 스캔 포함)
 - 보안 점검 이력은 `claude/rules/backend.md` 참고
@@ -77,3 +77,4 @@ API/DB/검색엔진/폴링 관련 결정 히스토리는 `claude/rules/backend.m
 16. [x] 서버 프로필 실배포 및 라이브 검증 — Docker 이미지 빌드/기동, `tailscale serve --bg http://backend:3000` 실행(최초 1회 tailnet에서 Serve 기능 승인 필요했음 — CLI 문법이 `https / <url>`에서 `<url>`로 변경된 점 포함 docs 반영 완료), `https://twitter-kr-achiver.<tailnet>.ts.net/`로 접속 확인, 사용자가 접속 기기 Tailscale 로그인 및 관리 콘솔에서 "Disable key expiry" 설정 완료
 17. [x] 실계정 아카이브 임포트 검증 + posts 기본키 충돌 버그 수정 + 검색 정렬 기능 추가 — 상세는 `claude/rules/backend.md`/`claude/rules/frontend.md` 참고. GitHub Issue로도 버그 별도 기록.
 18. [x] `import.html`을 React 프론트로 흡수 + 프로덕션 Docker 이미지가 React 프론트를 전혀 서빙하지 않던 문제 발견/수정 — Docker가 없는 환경이라 실제 빌드는 미검증(알려진 갭), 프론트 소스 변경은 Playwright로 검증. 상세는 `claude/rules/backend.md`/`claude/rules/frontend.md` 참고.
+19. [x] Tailscale 지원 제거 — 상시 켜둘 홈서버가 없어 Oracle Cloud Always Free 등 클라우드로 이전하는 방향으로 결정하면서 외부 접속 방식을 Cloudflare Tunnel로 일원화. `docker-compose.server.yml`의 tailscale 서비스/볼륨, `.env.example`의 TS_AUTHKEY/TS_HOSTNAME, docs 06/07의 관련 절 및 언급 전부 제거. 상세 배경은 `claude/rules/backend.md` 참고.
