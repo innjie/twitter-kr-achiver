@@ -172,3 +172,22 @@ TODO #16 배포 이후, 홈 PC를 상시 켜둘 수 없어 tailnet 노드가 off
 - **제거 범위**: `docker-compose.server.yml`의 `tailscale` 서비스 정의 + `tailscale_state` 볼륨 + 헤더 주석의 노출 방식 목록, `.env.example`의 `TS_AUTHKEY`/`TS_HOSTNAME`, `docker/Caddyfile`·`backend/src/app.ts`·`backend/src/config/env.ts`·`backend/src/middleware/basicAuth.ts`의 Tailscale 언급(일반화된 "사설 네트워크"/"VPN" 표현으로 대체 — Basic Auth를 사설망 전용 노출 시 선택 사항으로 두는 로직 자체는 Tailscale에 종속된 게 아니라 유지), `docs/06_개발가이드.md`/`docs/07_사용가이드.md`의 관련 절·비교표·`.env` 예시(§4-5-1 Tailscale 절 삭제, 옛 §4-5-2 Cloudflare Tunnel을 §4-5-1로 승격).
 - **역사 기록 보존**: 각 문서의 변경 이력(changelog)에 있던 과거 Tailscale 관련 항목(예: docs/07 v1.9/v1.10, claude.md TODO #10/#14~#16)은 "그 시점엔 실제로 그렇게 했다"는 사실 기록이라 삭제하지 않고 그대로 둠 — 대신 각 문서에 새 changelog 항목을 추가해 제거 사실과 사유를 남기는 방식으로 처리(docs/06 v1.6, docs/07 v1.13, claude.md TODO #19).
 - 이 작업은 코드/문서 정리만 진행한 것이며, Oracle Cloud 인스턴스 생성이나 Cloudflare Tunnel 실제 연결 등 실배포 자체는 사용자가 직접 진행 예정 (라이브 검증 없음, 가이드만 제공).
+
+### Oracle Cloud + Cloudflare Tunnel 실배포 진행상황 (TODO #20, 진행 중)
+TODO #19 결정에 따른 실제 이전 작업. 사용자가 직접 Oracle Cloud 콘솔/터미널에서 진행 중이며, 저는 화면 스크린샷 기반으로 각 단계를 가이드하는 역할(라이브 접근 불가, 실행은 전부 사용자가 직접). Mac에서도 동일 절차로 이어갈 수 있음(전부 브라우저 콘솔 작업 + 원격 Ubuntu 서버 SSH라 로컬 OS 무관).
+
+**노출 방식 결정(변경됨)**: 원래는 "도메인 구매 + Cloudflare Named Tunnel"부터 시작하려 했으나, 도메인 구매를 뒤로 미루고 **Cloudflare Quick Tunnel(무료, 토큰 불필요, URL 비고정)로 임시 시작 → 나중에 도메인 준비되면 Named Tunnel로 전환**하는 순서로 변경. Quick Tunnel은 `docker-compose.server.yml`의 `cloudflare-tunnel` profile(토큰 기반 Named Tunnel 전용)로는 못 띄우므로, 검색엔진만 profile로 띄우고 `cloudflared` 컨테이너는 별도 `docker run`으로 수동 실행하는 방식 안내함(§"Quick Tunnel 임시 실행 명령" 참고, 이 방식은 repo 파일에는 반영 안 함 — 임시 운영 방법이라 문서화 대상 아님).
+
+**진행 상태**:
+- [x] Oracle Cloud 계정 가입 — 최초 시도 "등록을 완료할 수 없습니다" 오류 발생(카드 인증/결제는 정상 승인됐으나 계정 생성 단계에서 실패, 흔한 사기방지 시스템 이슈로 추정) → 이메일/카드 등 정보를 한 번에 새로 바꿔 재가입해서 성공
+- [ ] Compute 인스턴스 생성 — **현재 여기서 막힘**: `Out of capacity for shape VM.Standard.A1.Flex in availability domain AD-1` 오류. OCPU를 낮추거나(2→1) 반복 재시도, 필요시 자동 재시도 스크립트로 안내 예정
+  - 결정된 설정값: Image는 **Canonical Ubuntu 24.04 표준**(Minimal 아님 — Docker 설치 스크립트 호환성 우선), Shape은 **VM.Standard.A1.Flex**(Ampere 탭에서 찾아야 함, "Specialty and previous generation" 탭에는 없음), **Shielded instance 켬**(무료, 추가 리스크 없음 확인됨), Advanced options의 **Security attributes(ZPR)는 비워둠**(엔터프라이즈 전용 기능, 이 프로젝트엔 불필요), OCPU/메모리는 기본값(1 OCPU/6GB)이면 충분(Flex라 나중에 무중단 조정 가능)
+  - "Estimated cost"에 부트볼륨 비용이 표시되는 것은 **Oracle 콘솔의 알려진 표시 버그**(Always Free 200GB 한도 내면 실제 청구 안 됨) — 무시하고 진행해도 됨을 확인
+- [ ] SSH 접속 확인
+- [ ] Docker 설치 (`curl -fsSL https://get.docker.com | sudo sh`)
+- [ ] 저장소 클론 + `backend/.env` 설정
+- [ ] `docker compose -f docker-compose.yml -f docker-compose.server.yml --profile server-meilisearch --env-file ../backend/.env up -d --build` (노출 profile 없이 우선 기동)
+- [ ] Quick Tunnel 임시 실행 (`docker run -d --name cloudflared-quick --network docker_internal cloudflare/cloudflared:latest tunnel --url http://backend:3000`, 네트워크 이름은 `docker network ls`로 확인) — 이 경로는 `CLOUDFLARE_TUNNEL_TOKEN`/`DOMAIN` 미설정이라 `validateEnv()`가 공인 노출로 인식 못해 Basic Auth를 강제하지 않으므로, **`APP_USERNAME`/`APP_PASSWORD`를 수동으로 반드시 설정**해야 함
+- [ ] Quick Tunnel URL로 접속 테스트
+- [ ] (나중에) 도메인 구매 → Cloudflare 네임서버 이전 → Named Tunnel 생성/토큰 발급 → `cloudflared-quick` 컨테이너 종료 후 `--profile cloudflare-tunnel`로 정식 전환
+- [ ] Oracle Cloud VM에 실제 아카이브 데이터 임포트 (로컬 개발 DB와 별개 — TODO #17 참고)

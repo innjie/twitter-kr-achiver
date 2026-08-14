@@ -78,3 +78,4 @@ API/DB/검색엔진/폴링 관련 결정 히스토리는 `claude/rules/backend.m
 17. [x] 실계정 아카이브 임포트 검증 + posts 기본키 충돌 버그 수정 + 검색 정렬 기능 추가 — 상세는 `claude/rules/backend.md`/`claude/rules/frontend.md` 참고. GitHub Issue로도 버그 별도 기록.
 18. [x] `import.html`을 React 프론트로 흡수 + 프로덕션 Docker 이미지가 React 프론트를 전혀 서빙하지 않던 문제 발견/수정 — Docker가 없는 환경이라 실제 빌드는 미검증(알려진 갭), 프론트 소스 변경은 Playwright로 검증. 상세는 `claude/rules/backend.md`/`claude/rules/frontend.md` 참고.
 19. [x] Tailscale 지원 제거 — 상시 켜둘 홈서버가 없어 Oracle Cloud Always Free 등 클라우드로 이전하는 방향으로 결정하면서 외부 접속 방식을 Cloudflare Tunnel로 일원화. `docker-compose.server.yml`의 tailscale 서비스/볼륨, `.env.example`의 TS_AUTHKEY/TS_HOSTNAME, docs 06/07의 관련 절 및 언급 전부 제거. 상세 배경은 `claude/rules/backend.md` 참고.
+20. [ ] Oracle Cloud + Cloudflare Tunnel 실배포 — 사용자가 직접 진행 중(Mac에서도 이어갈 수 있음, 브라우저+SSH 작업이라 OS 무관). 현재 Compute 인스턴스 생성 단계에서 `Out of capacity` 오류로 재시도 중. 상세 진행 체크리스트/현재까지 확정된 설정값은 `claude/rules/backend.md` 참고 — 다음 세션에서 이어갈 때 반드시 그 체크리스트부터 확인할 것.
