@@ -173,21 +173,28 @@ TODO #16 배포 이후, 홈 PC를 상시 켜둘 수 없어 tailnet 노드가 off
 - **역사 기록 보존**: 각 문서의 변경 이력(changelog)에 있던 과거 Tailscale 관련 항목(예: docs/07 v1.9/v1.10, claude.md TODO #10/#14~#16)은 "그 시점엔 실제로 그렇게 했다"는 사실 기록이라 삭제하지 않고 그대로 둠 — 대신 각 문서에 새 changelog 항목을 추가해 제거 사실과 사유를 남기는 방식으로 처리(docs/06 v1.6, docs/07 v1.13, claude.md TODO #19).
 - 이 작업은 코드/문서 정리만 진행한 것이며, Oracle Cloud 인스턴스 생성이나 Cloudflare Tunnel 실제 연결 등 실배포 자체는 사용자가 직접 진행 예정 (라이브 검증 없음, 가이드만 제공).
 
-### Oracle Cloud + Cloudflare Tunnel 실배포 진행상황 (TODO #20, 진행 중)
-TODO #19 결정에 따른 실제 이전 작업. 사용자가 직접 Oracle Cloud 콘솔/터미널에서 진행 중이며, 저는 화면 스크린샷 기반으로 각 단계를 가이드하는 역할(라이브 접근 불가, 실행은 전부 사용자가 직접). Mac에서도 동일 절차로 이어갈 수 있음(전부 브라우저 콘솔 작업 + 원격 Ubuntu 서버 SSH라 로컬 OS 무관).
+### Oracle Cloud + Cloudflare Tunnel 실배포 진행상황 (TODO #20)
+TODO #19 결정에 따른 실제 이전 작업. 사용자가 직접 Oracle Cloud 콘솔/터미널에서 진행, 저는 화면 스크린샷/터미널 출력 기반으로 각 단계를 가이드하는 역할(라이브 접근 불가, 실행은 전부 사용자가 직접).
 
-**노출 방식 결정(변경됨)**: 원래는 "도메인 구매 + Cloudflare Named Tunnel"부터 시작하려 했으나, 도메인 구매를 뒤로 미루고 **Cloudflare Quick Tunnel(무료, 토큰 불필요, URL 비고정)로 임시 시작 → 나중에 도메인 준비되면 Named Tunnel로 전환**하는 순서로 변경. Quick Tunnel은 `docker-compose.server.yml`의 `cloudflare-tunnel` profile(토큰 기반 Named Tunnel 전용)로는 못 띄우므로, 검색엔진만 profile로 띄우고 `cloudflared` 컨테이너는 별도 `docker run`으로 수동 실행하는 방식 안내함(§"Quick Tunnel 임시 실행 명령" 참고, 이 방식은 repo 파일에는 반영 안 함 — 임시 운영 방법이라 문서화 대상 아님).
+**노출 방식 결정(변경됨)**: 원래는 "도메인 구매 + Cloudflare Named Tunnel"부터 시작하려 했으나, 도메인 구매를 뒤로 미루고 **Cloudflare Quick Tunnel(무료, 토큰 불필요, URL 비고정)로 임시 시작 → 나중에 도메인 준비되면 Named Tunnel로 전환**하는 순서로 변경. Quick Tunnel은 `docker-compose.server.yml`의 `cloudflare-tunnel` profile(토큰 기반 Named Tunnel 전용)로는 못 띄우므로, 검색엔진+backend만 profile로 띄우고 `cloudflared` 컨테이너는 별도 `docker run`으로 수동 실행(repo 파일에는 반영 안 함 — 임시 운영 방법).
 
-**진행 상태**:
-- [x] Oracle Cloud 계정 가입 — 최초 시도 "등록을 완료할 수 없습니다" 오류 발생(카드 인증/결제는 정상 승인됐으나 계정 생성 단계에서 실패, 흔한 사기방지 시스템 이슈로 추정) → 이메일/카드 등 정보를 한 번에 새로 바꿔 재가입해서 성공
-- [ ] Compute 인스턴스 생성 — **현재 여기서 막힘**: `Out of capacity for shape VM.Standard.A1.Flex in availability domain AD-1` 오류. OCPU를 낮추거나(2→1) 반복 재시도, 필요시 자동 재시도 스크립트로 안내 예정
-  - 결정된 설정값: Image는 **Canonical Ubuntu 24.04 표준**(Minimal 아님 — Docker 설치 스크립트 호환성 우선), Shape은 **VM.Standard.A1.Flex**(Ampere 탭에서 찾아야 함, "Specialty and previous generation" 탭에는 없음), **Shielded instance 켬**(무료, 추가 리스크 없음 확인됨), Advanced options의 **Security attributes(ZPR)는 비워둠**(엔터프라이즈 전용 기능, 이 프로젝트엔 불필요), OCPU/메모리는 기본값(1 OCPU/6GB)이면 충분(Flex라 나중에 무중단 조정 가능)
-  - "Estimated cost"에 부트볼륨 비용이 표시되는 것은 **Oracle 콘솔의 알려진 표시 버그**(Always Free 200GB 한도 내면 실제 청구 안 됨) — 무시하고 진행해도 됨을 확인
-- [ ] SSH 접속 확인
-- [ ] Docker 설치 (`curl -fsSL https://get.docker.com | sudo sh`)
-- [ ] 저장소 클론 + `backend/.env` 설정
-- [ ] `docker compose -f docker-compose.yml -f docker-compose.server.yml --profile server-meilisearch --env-file ../backend/.env up -d --build` (노출 profile 없이 우선 기동)
-- [ ] Quick Tunnel 임시 실행 (`docker run -d --name cloudflared-quick --network docker_internal cloudflare/cloudflared:latest tunnel --url http://backend:3000`, 네트워크 이름은 `docker network ls`로 확인) — 이 경로는 `CLOUDFLARE_TUNNEL_TOKEN`/`DOMAIN` 미설정이라 `validateEnv()`가 공인 노출로 인식 못해 Basic Auth를 강제하지 않으므로, **`APP_USERNAME`/`APP_PASSWORD`를 수동으로 반드시 설정**해야 함
-- [ ] Quick Tunnel URL로 접속 테스트
+**진행 상태 (완료, 아카이브 임포트만 남음)**:
+- [x] Oracle Cloud 계정 가입 — 최초 시도 "등록을 완료할 수 없습니다" 오류(카드 인증/결제는 정상 승인됐으나 계정 생성 단계 실패, 사기방지 시스템 이슈로 추정) → 이메일/카드 등 정보를 한 번에 새로 바꿔 재가입해서 성공
+- [x] Compute 인스턴스 생성 — **세 번의 재생성 끝에 완료**. 결정된 설정값: Image **Canonical Ubuntu 24.04 표준**(Minimal 아님), Shape **VM.Standard.A1.Flex**(Ampere 탭), OCPU/메모리는 Always Free 한도 내(2 OCPU/12GB 이하 권장 — 2026년 정책 변경으로 4/24에서 축소될 수 있어 안전하게), Security attributes(ZPR) 비워둠
+  - "Estimated cost"의 부트볼륨 비용 표시는 Oracle 콘솔의 알려진 표시 버그(Always Free 200GB 한도 내면 실제 청구 안 됨)
+  - "Out of capacity for shape VM.Standard.A1.Flex" 오류 → Pay As You Go로 계정 업그레이드 후 해결(Always Free 리소스 자체는 업그레이드 후에도 계속 무료, **대신 Budget 알림 $1로 설정 필수**: Billing & Cost Management → Budgets → Compartment=root, Monthly, Amount=1)
+  - **SSH 키 관련 심각한 문제 반복 발생**: "Generate a key pair for me"(Oracle 자동 생성+다운로드)로 두 번 생성했으나 둘 다 `ssh -v`에서 `Offering public key` 단계까지 가고도 서버가 거부(`Permission denied (publickey)`) — 포맷 문제(구형 PEM이 Windows OpenSSH 클라이언트에서 `type -1`로 파싱 실패하는 경우는 `ssh-keygen -p -f <file> -N "" -P ""`로 신형 포맷 변환해 해결했으나, 그 이후에도 fingerprint 자체가 인스턴스 등록 키와 다른 근본 원인은 끝내 못 찾음)(컴퓨터 재부팅 후 다음 날 재시도한 것까지 재발해 "브라우저 세션 캐시" 가설도 기각됨). Oracle 공식 문서 확인 결과 Console Connection(시리얼 콘솔)로는 Ubuntu 인스턴스의 `authorized_keys`를 직접 고칠 수 없음(Oracle Linux만 GRUB 유지보수 모드 지원, 실제 복구엔 부트볼륨 분리+마운트라는 복잡한 절차 필요) — **최종 해결책**: Oracle의 자동 생성 플로우를 아예 거치지 않고, 로컬에서 `ssh-keygen -t rsa -b 2048 -f <path> -N ""`로 직접 키 생성 후 인스턴스 생성 시 **"Paste public keys"**로 공개키만 붙여넣는 방식으로 전환하여 해결. 이 과정에서 실수로 Image가 **Oracle Linux**로 생성된 적도 있었음(Username이 `ubuntu`가 아니라 `opc`라 접속 실패) — Image details에서 OS 재확인하는 습관 필요.
+- [x] SSH 접속 확인
+- [x] Docker 설치 (`curl -fsSL https://get.docker.com | sudo sh`)
+- [x] 저장소 클론 + `backend/.env` 설정 — 겪은 문제들:
+  - `TOKEN_ENCRYPTION_KEY`를 처음에 `openssl rand -base64 32`(MEILI_MASTER_KEY용 생성법)로 잘못 안내 → 실제로는 **hex 64자** 형식 필요, `openssl rand -hex 32`로 정정(서버에 Node.js가 없어 `node -e crypto...` 대신 사용)
+  - `NODE_ENV=development`가 `.env.example`에서 그대로 남아 Dockerfile의 `production` 기본값을 덮어씀 → 수동으로 `production`으로 변경 필요
+  - **`.env` 변수가 한 줄에 여러 개 합쳐지는 사고 발생**: nano에서 편집 중 줄바꿈이 누락되어 `APP_MODE=server PORT=3000 NODE_ENV=production`처럼 한 줄이 됨 → `APP_MODE`의 실제 값이 `"server"`가 아니게 되어 `appMode === "server"` 비교가 실패, 서버 모드 로직(Basic Auth 강제 포함)이 조용히 비활성화되는 심각한 보안 사고로 이어짐(Quick Tunnel 주소가 인증 없이 완전히 공개된 상태로 한동안 노출됨) — 한 줄씩 명확히 입력하도록 수정 후 해결. `cat -A .env`로 줄바꿈 확인하는 습관 권장.
+- [x] `docker compose -f docker-compose.yml -f docker-compose.server.yml --profile server-meilisearch --env-file ../backend/.env up -d --build` (노출 profile 없이 우선 기동) — backend가 `Restarting` 반복할 때마다 `logs backend --tail 50`으로 위 환경변수 문제들을 순차적으로 발견/해결
+  - **참고**: `backend`에 `ports:` 매핑이 의도적으로 없어(보안 설계) 호스트에서 `curl 127.0.0.1:3000`은 원래 실패함(정상). `docker compose exec backend curl ...`도 `node:22-slim` 베이스에 curl이 없어 실패 — 로그의 `listening on port 3000` 메시지로 기동 확인.
+- [x] Quick Tunnel 임시 실행 (`docker network ls`로 확인한 실제 네트워크 이름 `docker_internal` 사용: `docker run -d --name cloudflared-quick --network docker_internal cloudflare/cloudflared:latest tunnel --url http://backend:3000`) — `--restart` 정책 없음(서버 재부팅 시 수동 재기동 필요, 임시 용도라 의도적으로 생략)
+- [x] Quick Tunnel URL로 접속 테스트 — 최초엔 위 `.env` 줄바꿈 사고로 Basic Auth 없이 노출됐던 걸 발견해 즉시 수정, 재확인 완료
 - [ ] (나중에) 도메인 구매 → Cloudflare 네임서버 이전 → Named Tunnel 생성/토큰 발급 → `cloudflared-quick` 컨테이너 종료 후 `--profile cloudflare-tunnel`로 정식 전환
-- [ ] Oracle Cloud VM에 실제 아카이브 데이터 임포트 (로컬 개발 DB와 별개 — TODO #17 참고)
+- [ ] Oracle Cloud VM에 실제 아카이브 데이터 임포트 (로컬 개발 DB와 별개 — TODO #17 참고) — **다음 단계**
+
+실전 전체 절차(명령어 포함, 자리표시자 처리)는 `docs/06_개발가이드.md` §8-1에 별도 정리함.
