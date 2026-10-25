@@ -194,7 +194,12 @@ TODO #19 결정에 따른 실제 이전 작업. 사용자가 직접 Oracle Cloud
   - **참고**: `backend`에 `ports:` 매핑이 의도적으로 없어(보안 설계) 호스트에서 `curl 127.0.0.1:3000`은 원래 실패함(정상). `docker compose exec backend curl ...`도 `node:22-slim` 베이스에 curl이 없어 실패 — 로그의 `listening on port 3000` 메시지로 기동 확인.
 - [x] Quick Tunnel 임시 실행 (`docker network ls`로 확인한 실제 네트워크 이름 `docker_internal` 사용: `docker run -d --name cloudflared-quick --network docker_internal cloudflare/cloudflared:latest tunnel --url http://backend:3000`) — `--restart` 정책 없음(서버 재부팅 시 수동 재기동 필요, 임시 용도라 의도적으로 생략)
 - [x] Quick Tunnel URL로 접속 테스트 — 최초엔 위 `.env` 줄바꿈 사고로 Basic Auth 없이 노출됐던 걸 발견해 즉시 수정, 재확인 완료
-- [ ] (나중에) 도메인 구매 → Cloudflare 네임서버 이전 → Named Tunnel 생성/토큰 발급 → `cloudflared-quick` 컨테이너 종료 후 `--profile cloudflare-tunnel`로 정식 전환
-- [ ] Oracle Cloud VM에 실제 아카이브 데이터 임포트 (로컬 개발 DB와 별개 — TODO #17 참고) — **다음 단계**
+- [x] Oracle Cloud VM에 실제 아카이브 데이터 임포트 (로컬 개발 DB와 별개 — TODO #17 참고) — 아래 문제들을 겪은 뒤 완료
+  - **1차 실패**: zip 파일이 X 공식 아카이브 전체(미디어 포함) 37.9GB였음 — 이 앱은 `data/tweet*.js`+`data/like.js` 텍스트 데이터만 필요해 미디어 폴더 전부 제외하고 재압축 필요(519MB로 축소)
+  - **2차 실패("tweet.js/like.js를 찾지 못했습니다")**: 재압축 시 파일들을 zip 루트에 바로 넣어서, 코드가 요구하는 `data/tweet.js` 경로(정규식 `^data\/tweets?(-part\d+)?\.js$`)와 안 맞았음 — `data` 폴더를 만들어 그 안에 넣은 뒤 **폴더째로** 압축해야 함(`unzip -l`로 내부 경로가 `data/...`인지 직접 확인하는 게 제일 빠름)
+  - **3차 실패("서버 응답을 해석할 수 없습니다")**: 구조는 맞았지만 519MB가 **Cloudflare 무료 플랜 업로드 제한(100MB)**을 초과 — Cloudflare가 중간에 끊고 자체 에러 페이지(비-JSON)를 돌려줘서 프론트의 `JSON.parse(xhr.responseText)`가 실패(`frontend/src/api/importArchive.ts`). zip이 잘려서 central directory가 손상되어 백엔드 쪽에서도 "파일을 못 찾음" 에러로 나타났을 것으로 추정.
+  - **최종 해결**: Cloudflare를 우회해 직접 업로드. `docker-compose.server.yml`의 `backend` 서비스에 **임시로** `ports: ["127.0.0.1:3000:3000"]` 추가(보안 설계상 원래 없음, 작업 후 반드시 제거) → 로컬 PC에서 `ssh -i <key> -L 3000:127.0.0.1:3000 ubuntu@<IP>`로 포트포워딩 → `http://localhost:3000`으로 직접 접속해 업로드(Cloudflare 전혀 경유 안 함) → 성공 후 `ports:` 줄 제거하고 재시작해 원래 보안 상태로 복구.
+  - 참고: `INSERT OR IGNORE`(`SqliteAdapter.ts`) 방식이라 실패한 시도가 일부 데이터를 이미 넣었어도 재시도 시 중복/덮어쓰기 걱정 없이 안전했음.
+- [ ] (나중에) 도메인 구매 → Cloudflare 네임서버 이전 → Named Tunnel 생성/토큰 발급 → `cloudflared-quick` 컨테이너 종료 후 `--profile cloudflare-tunnel`로 정식 전환 — **마지막 남은 작업**
 
 실전 전체 절차(명령어 포함, 자리표시자 처리)는 `docs/06_개발가이드.md` §8-1에 별도 정리함.
