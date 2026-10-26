@@ -7,8 +7,9 @@ import { encryptToken } from "../auth/tokenCrypto";
 
 const AUTHORIZE_URL = "https://x.com/i/oauth2/authorize";
 const TOKEN_URL = "https://api.x.com/2/oauth2/token";
-// tweet/like/bookmark 조회(sync_state 채널) + offline.access(refresh_token 발급)
-const SCOPES = "tweet.read users.read like.read bookmark.read offline.access";
+// tweet/like 조회(sync_state 채널) + offline.access(refresh_token 발급)
+// bookmark.read는 X 접근 등급에 따라 거부될 수 있어 임시로 제외(진단용, TODO #20 참고)
+const SCOPES = "tweet.read users.read like.read offline.access";
 
 interface XTokenResponse {
   access_token: string;
