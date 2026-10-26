@@ -156,6 +156,10 @@ export class MeilisearchAdapter implements SearchProvider {
       attributesToHighlight: ["text"],
       highlightPreTag: HIGHLIGHT_PRE_TAG,
       highlightPostTag: HIGHLIGHT_POST_TAG,
+      // 기본값(last)은 마지막 토큰 매칭을 느슨하게 봐줘서, 한국어가 음절 단위로 토크나이징될 때
+      // 쿼리 일부 음절만 포함된 문서도 걸리는 오탐이 심함(예: "재질" 검색에 "재미"/"저질" 매칭).
+      // "all"로 쿼리의 모든 토큰을 요구해 오탐을 줄인다 (근본 해결은 아님 — Elasticsearch+Nori가 정석).
+      matchingStrategy: "all",
     });
 
     const hits: SearchHit[] = response.hits.map((hit) => {
