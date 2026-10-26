@@ -7,11 +7,8 @@ import { encryptToken } from "../auth/tokenCrypto";
 
 const AUTHORIZE_URL = "https://x.com/i/oauth2/authorize";
 const TOKEN_URL = "https://api.x.com/2/oauth2/token";
-// tweet/like 조회(sync_state 채널) + offline.access(refresh_token 발급)
-// bookmark.read는 사용자가 북마크 동기화가 필요 없다고 판단해 의도적으로 제외(TODO #20 참고).
-// bookmarks 폴링 채널(pollChannels.ts)은 이 스코프 없이도 에러 격리 덕분에 실패만 하고 나머지 채널에
-// 영향 없음 — 필요해지면 이 스코프를 다시 추가하고 재연동하면 됨.
-const SCOPES = "tweet.read users.read like.read offline.access";
+// tweet/like/bookmark 조회(sync_state 채널) + offline.access(refresh_token 발급)
+const SCOPES = "tweet.read users.read like.read bookmark.read offline.access";
 
 interface XTokenResponse {
   access_token: string;
