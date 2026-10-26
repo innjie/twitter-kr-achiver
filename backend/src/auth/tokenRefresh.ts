@@ -2,7 +2,7 @@ import type { AppEnv } from "../config/env";
 import type { DbAdapter } from "../db/DbAdapter";
 import { decryptToken, encryptToken } from "./tokenCrypto";
 
-const TOKEN_URL = "https://api.twitter.com/2/oauth2/token";
+const TOKEN_URL = "https://api.x.com/2/oauth2/token";
 /** 이 여유시간 이내로 만료가 임박하면 폴링 전에 미리 갱신한다 */
 const EXPIRY_SAFETY_MARGIN_MS = 60 * 1000;
 

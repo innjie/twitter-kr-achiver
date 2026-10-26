@@ -5,7 +5,7 @@
  * 채널별 전략 분기(증분 조회 vs 페이지워크) 이유다.
  */
 
-const API_BASE = "https://api.twitter.com/2";
+const API_BASE = "https://api.x.com/2";
 const MAX_RESULTS = 100;
 
 const TWEET_FIELDS = "created_at,lang,referenced_tweets,in_reply_to_user_id";
