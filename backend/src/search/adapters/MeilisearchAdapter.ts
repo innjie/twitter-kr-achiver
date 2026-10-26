@@ -126,7 +126,12 @@ export class MeilisearchAdapter implements SearchProvider {
 
     const filterTask = await this.index.updateFilterableAttributes(FILTERABLE_ATTRIBUTES);
     const sortTask = await this.index.updateSortableAttributes(SORTABLE_ATTRIBUTES);
-    await this.client.tasks.waitForTasks([filterTask.taskUid, sortTask.taskUid]);
+    // 한글 음절(완성형 1글자)이 영문 단어 길이 기준 오타 허용 임계값(minWordSizeForTypos)에 걸려
+    // 전혀 다른 음절끼리도 "오타"로 취급돼 매칭되는 문제 확인(예: "봉지" 검색에 "방지"/"본질" 매칭).
+    // 다국어(한/영/일/중) 공용 인덱스라 언어별로 다르게 설정할 수 없어, 전체적으로 꺼서
+    // 오탐을 막는다 — 영문 오타 교정 기능은 포기하는 트레이드오프.
+    const typoTask = await this.index.updateTypoTolerance({ enabled: false });
+    await this.client.tasks.waitForTasks([filterTask.taskUid, sortTask.taskUid, typoTask.taskUid]);
   }
 
   async indexDocument(post: Post): Promise<void> {
