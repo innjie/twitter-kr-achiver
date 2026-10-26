@@ -200,6 +200,12 @@ TODO #19 결정에 따른 실제 이전 작업. 사용자가 직접 Oracle Cloud
   - **3차 실패("서버 응답을 해석할 수 없습니다")**: 구조는 맞았지만 519MB가 **Cloudflare 무료 플랜 업로드 제한(100MB)**을 초과 — Cloudflare가 중간에 끊고 자체 에러 페이지(비-JSON)를 돌려줘서 프론트의 `JSON.parse(xhr.responseText)`가 실패(`frontend/src/api/importArchive.ts`). zip이 잘려서 central directory가 손상되어 백엔드 쪽에서도 "파일을 못 찾음" 에러로 나타났을 것으로 추정.
   - **최종 해결**: Cloudflare를 우회해 직접 업로드. `docker-compose.server.yml`의 `backend` 서비스에 **임시로** `ports: ["127.0.0.1:3000:3000"]` 추가(보안 설계상 원래 없음, 작업 후 반드시 제거) → 로컬 PC에서 `ssh -i <key> -L 3000:127.0.0.1:3000 ubuntu@<IP>`로 포트포워딩 → `http://localhost:3000`으로 직접 접속해 업로드(Cloudflare 전혀 경유 안 함) → 성공 후 `ports:` 줄 제거하고 재시작해 원래 보안 상태로 복구.
   - 참고: `INSERT OR IGNORE`(`SqliteAdapter.ts`) 방식이라 실패한 시도가 일부 데이터를 이미 넣었어도 재시도 시 중복/덮어쓰기 걱정 없이 안전했음.
-- [ ] (나중에) 도메인 구매 → Cloudflare 네임서버 이전 → Named Tunnel 생성/토큰 발급 → `cloudflared-quick` 컨테이너 종료 후 `--profile cloudflare-tunnel`로 정식 전환 — **마지막 남은 작업**
+- [x] 도메인 구매(Namecheap) → Cloudflare 네임서버 이전 → Named Tunnel 생성/토큰 발급 → `cloudflared-quick` 컨테이너 종료 후 `--profile cloudflare-tunnel`로 정식 전환 — 완료. Cloudflare "Add a tunnel" 마법사가 Docker 설치 명령어를 OS 선택(기본 Windows)에 따라 다르게 보여줘서, **"Docker" 선택 후 나오는 `--token` 값만 추출**해 `.env`의 `CLOUDFLARE_TUNNEL_TOKEN`에 반영하는 방식으로 진행. Public Hostname(route)은 터널 생성 직후 자동으로 뜨지 않고 터널 상세 화면의 **Routes 탭 → "+ Add route" → "Published application"**에서 별도로 추가해야 함 — Service URL은 `http://backend:3000`.
+- [x] X 계정 OAuth 연동 — 도메인 고정 후 시도했으나 여러 단계의 버그를 거쳐 완료:
+  - **1차**: 로그인 화면 뜨기도 전에 X가 "문제가 발생했습니다/앱에 접근할 수 없습니다" 거부 → `backend/src/routes/authRoutes.ts`/`tokenRefresh.ts`/`polling/xApiClient.ts`에 하드코딩돼 있던 구 도메인(`twitter.com`/`api.twitter.com`)을 `x.com`/`api.x.com`으로 교체(X의 도메인 이전 때문, 커뮤니티에 동일 증상 보고 있었음) — 그래도 재발.
+  - **2차(진단)**: `bookmark.read` 스코프가 접근 등급에 따라 거부될 수 있다는 `docs/07_사용가이드.md` §5-3의 기존 알려진 제약을 의심해 스코프에서 임시 제외 — 그래도 재발.
+  - **진짜 원인**: `backend/.env`의 `X_CLIENT_ID` 값에서 **글자 하나("I")가 누락**되어 있었음(34자가 아닌 33자) — 이전 세션에서 줄바꿈/공백 정리하며 수동 편집하다가 생긴 오타로 추정. `wc -c`로 글자 수를 세어 X Developer Portal에서 직접 텍스트로 복사한 값(34자)과 대조해 발견. 수정 후 "문제가 발생했습니다" 단계는 통과했으나, 이어서 토큰 교환 단계에서 `401 unauthorized_client (Missing valid authorization header)` 발생 — **`X_CLIENT_SECRET`도 같은 식으로 손상**돼 있었던 것으로 추정, 포털에서 시크릿을 재생성해 받은 새 값으로 교체 후 최종 해결.
+  - **교훈**: `.env`의 민감한 긴 토큰/ID 값을 SSH 터미널에서 수동 편집(nano)할 때 글자가 누락되거나 손상되기 쉬움 — 가능하면 직접 타이핑하지 않고 원본에서 복사-붙여넣기, 의심스러우면 `wc -c`로 글자 수를 원본과 대조하는 방법이 효과적임.
+  - **최종 결정**: `bookmark.read`는 사용자가 "북마크는 없어도 됨"이라고 결정해 영구 제외(필요해지면 스코프 추가 후 재연동하면 됨, `authRoutes.ts` 주석에 기록). bookmarks 폴링 채널은 에러 격리 덕분에 이 스코프 없이도 다른 채널에 영향 없이 안전하게 실패만 함.
 
-실전 전체 절차(명령어 포함, 자리표시자 처리)는 `docs/06_개발가이드.md` §8-1에 별도 정리함.
+TODO #20 전체 완료 — Oracle Cloud Always Free + Cloudflare Named Tunnel + 실데이터 임포트 + X 계정 실시간 폴링까지 전부 라이브로 동작 확인됨. 실전 전체 절차(명령어 포함, 자리표시자 처리)는 `docs/06_개발가이드.md` §8-1에 별도 정리함.
